@@ -1,6 +1,12 @@
 import os
 import sys
+
+import pywintypes
 import win32com.client
+import win32process
+import win32gui
+import win32api
+import win32con
 import pyautogui
 import ctypes
 import time
@@ -60,8 +66,68 @@ def calendar_info():
         break
 
 
-calendar_info()
+# calendar_info()
+# webbrowser
 # msteams:{parsed_url}
 # Todo: if dispatch object Outlook.Applicantion is cached then delete it
 #  out = win32com.client.gencache.EnsureDispatch("Outlook.Application")
 #  print(sys.modules[out.__module__].__file__)
+
+# -------------------------------- ENUM invoked windows, get tid, pid, get window name ---------------------------------
+
+
+def get_tid_and_pid(handle, object):
+    tid, pid = win32process.GetWindowThreadProcessId(handle)
+    print(f"TID: {tid} PID: {pid}")
+
+
+def enum_windows(callback_func, object_str):
+    return win32gui.EnumWindows(callback_func, object_str)
+
+# print(enum_windows())
+
+
+def enum_processes():
+    return win32process.EnumProcesses()
+
+
+def get_handle_object(pid: int):
+    try:
+        # return win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, win32con.FALSE, pid)
+        return win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, win32con.FALSE, pid)
+    except pywintypes.error as er:
+        print(er)
+
+
+
+# print(get_handle_object(18912))
+
+
+def get_handle_process_module(handle):
+    return win32process.EnumProcessModules(handle)
+
+
+def get_window_text(handle, object):
+    print(f"Window name: {win32gui.GetWindowText(handle)} {handle}")
+
+
+pid_processes = enum_processes()
+# print(pid_processes)
+
+print()
+# pywintypes.error: (5, 'OpenProcess', 'Access is denied.')
+# Regarding error check : https://docs.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights?redirectedfrom=MSDN
+# https://stackoverflow.com/questions/8543716/python-pywin32-access-denied
+
+
+# print(enum_windows(get_window_text, "window name"))
+
+# the window with which the user is currently working
+# current_window = win32gui.GetForegroundWindow()
+# print(current_window)
+# tid, pid = win32process.GetWindowThreadProcessId(current_window)
+# print(tid, pid)
+# win_handle = handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, pid)
+# window_path = win32process.GetModuleFileNameEx(win_handle, 0)
+# print(win_handle)
+# print(window_path)
