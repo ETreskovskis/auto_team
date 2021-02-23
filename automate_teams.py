@@ -76,7 +76,7 @@ def calendar_info():
 # -------------------------------- ENUM invoked windows, get tid, pid, get window name ---------------------------------
 
 
-def get_tid_and_pid(handle, object):
+def get_tid_and_pid(handle, data: list):
     tid, pid = win32process.GetWindowThreadProcessId(handle)
     print(f"TID: {tid} PID: {pid}")
 
@@ -133,6 +133,16 @@ is_visible = win32gui.IsWindowVisible(current_window)
 print(bool(is_visible))
 
 # creates message box
-win32gui.MessageBox(current_window, "This is message box", "BOX", win32con.MB_HELP)
+# win32gui.MessageBox(current_window, "This is message box", "BOX", win32con.MB_HELP)
 # cursor = win32gui.GetCursorInfo()
 # print(cursor)
+
+
+def get_window_info(hwnd, top_windows: list):
+    tid, pid = win32process.GetWindowThreadProcessId(hwnd)
+    top_windows.append(dict(handler=hwnd, tid=tid, pid=pid, name= win32gui.GetWindowText(hwnd)))
+
+
+top_windows = []
+win32gui.EnumWindows(get_window_info, top_windows)
+print(top_windows)
