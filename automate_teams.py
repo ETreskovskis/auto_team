@@ -79,10 +79,11 @@ def calendar_info():
 def get_tid_and_pid(handle, data: list):
     tid, pid = win32process.GetWindowThreadProcessId(handle)
     print(f"TID: {tid} PID: {pid}")
+    data.append(dict(handler=handle, tid=tid, pid=pid))
 
 
-def enum_windows(callback_func, object_str):
-    return win32gui.EnumWindows(callback_func, object_str)
+def enum_windows(callback_func, any_obj):
+    return win32gui.EnumWindows(callback_func, any_obj)
 
 # print(enum_windows())
 
