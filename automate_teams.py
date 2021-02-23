@@ -113,8 +113,6 @@ def get_window_text(handle, object):
 
 pid_processes = enum_processes()
 # print(pid_processes)
-
-print()
 # pywintypes.error: (5, 'OpenProcess', 'Access is denied.')
 # Regarding error check : https://docs.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights?redirectedfrom=MSDN
 # https://stackoverflow.com/questions/8543716/python-pywin32-access-denied
@@ -123,11 +121,18 @@ print()
 # print(enum_windows(get_window_text, "window name"))
 
 # the window with which the user is currently working
-# current_window = win32gui.GetForegroundWindow()
-# print(current_window)
-# tid, pid = win32process.GetWindowThreadProcessId(current_window)
-# print(tid, pid)
-# win_handle = handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, pid)
-# window_path = win32process.GetModuleFileNameEx(win_handle, 0)
-# print(win_handle)
-# print(window_path)
+current_window = win32gui.GetForegroundWindow()
+print(current_window)
+tid, pid = win32process.GetWindowThreadProcessId(current_window)
+print(tid, pid)
+win_handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, pid)
+window_path = win32process.GetModuleFileNameEx(win_handle, 0)
+print(win_handle)
+print(window_path)
+is_visible = win32gui.IsWindowVisible(current_window)
+print(bool(is_visible))
+
+# creates message box
+win32gui.MessageBox(current_window, "This is message box", "BOX", win32con.MB_HELP)
+# cursor = win32gui.GetCursorInfo()
+# print(cursor)
