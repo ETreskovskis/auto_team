@@ -198,6 +198,9 @@ for idx, items in enumerate(top_windows):
         time.sleep(1)
         pos = (1405, 750)
         win32api.SetCursorPos(pos)
+        # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
+        # https://www.programmersought.com/article/98256504655/
+        # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(0.5)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
