@@ -147,3 +147,7 @@ def get_window_info(hwnd, top_windows: list):
 top_windows = []
 win32gui.EnumWindows(get_window_info, top_windows)
 print(top_windows)
+# Show window and set as foreground window
+# https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
+win32gui.ShowWindow(top_windows[0].get("handler"), win32con.SW_SHOW)
+win32gui.SetForegroundWindow(top_windows[0].get("handler"))
