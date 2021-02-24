@@ -18,6 +18,7 @@ import datetime
 # Todo: look for TA Daily Scrum
 # Todo: check daily when TA scrum start (time, date)
 # Todo: join teams meeting when (1,2 3 time) minutes left
+# Todo: add documentation of pywin32 http://timgolden.me.uk/pywin32-docs/contents.html
 
 # teams_path = "C:/Users/erikas.treskovskis/AppData/Local/Microsoft/Teams/TeamsMeetingAddin/1.0.20.289.5/x86/Microsoft.Teams.AddinLoader.dll"
 
@@ -149,5 +150,10 @@ win32gui.EnumWindows(get_window_info, top_windows)
 print(top_windows)
 # Show window and set as foreground window
 # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
-win32gui.ShowWindow(top_windows[0].get("handler"), win32con.SW_SHOW)
-win32gui.SetForegroundWindow(top_windows[0].get("handler"))
+# win32gui.ShowWindow(top_windows[0].get("handler"), win32con.SW_SHOW)
+# win32gui.SetForegroundWindow(top_windows[0].get("handler"))
+
+for idx, items in enumerate(top_windows):
+    if items.get("name") and  "Teams" in items.get("name"):
+        win32gui.ShowWindow(top_windows[idx].get("handler"), win32con.SW_HIDE)
+        win32gui.SetForegroundWindow(top_windows[idx].get("handler"))
