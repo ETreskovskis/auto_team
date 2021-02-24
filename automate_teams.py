@@ -123,37 +123,77 @@ pid_processes = enum_processes()
 # print(enum_windows(get_window_text, "window name"))
 
 # the window with which the user is currently working
-current_window = win32gui.GetForegroundWindow()
-print(current_window)
-tid, pid = win32process.GetWindowThreadProcessId(current_window)
-print(tid, pid)
-win_handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, pid)
-window_path = win32process.GetModuleFileNameEx(win_handle, 0)
-print(win_handle)
-print(window_path)
-is_visible = win32gui.IsWindowVisible(current_window)
-print(bool(is_visible))
+# current_window = win32gui.GetForegroundWindow()
+# print(current_window)
+# tid, pid = win32process.GetWindowThreadProcessId(current_window)
+# print(tid, pid)
+# win_handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, False, pid)
+# window_path = win32process.GetModuleFileNameEx(win_handle, 0)
+# print(win_handle)
+# print(window_path)
+# print(win32gui.GetWindowText(current_window))
+# # window position
+# print(win32gui.GetWindowRect(current_window))
+# # get window full info
+# print(win32gui.GetWindowPlacement(current_window))
+
+# win32api.SetCursorPos((1230, 312))
+# # http://timgolden.me.uk/pywin32-docs/win32gui__GetCursorInfo_meth.html
+# print(win32gui.GetCursorInfo())
+# print(win32gui.GetCursorPos())
+# return window status 1 -> visible 0 -> not visible
+# is_visible = win32gui.IsWindowVisible(current_window)
+# print(bool(is_visible))
 
 # creates message box
 # win32gui.MessageBox(current_window, "This is message box", "BOX", win32con.MB_HELP)
-# cursor = win32gui.GetCursorInfo()
-# print(cursor)
+
 
 
 def get_window_info(hwnd, top_windows: list):
     tid, pid = win32process.GetWindowThreadProcessId(hwnd)
-    top_windows.append(dict(handler=hwnd, tid=tid, pid=pid, name= win32gui.GetWindowText(hwnd)))
+    top_windows.append(dict(handler=hwnd, tid=tid, pid=pid, name=win32gui.GetWindowText(hwnd)))
 
 
-top_windows = []
-win32gui.EnumWindows(get_window_info, top_windows)
-print(top_windows)
+# top_windows = []
+# win32gui.EnumWindows(get_window_info, top_windows)
+# print(top_windows)
+
 # Show window and set as foreground window
 # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
 # win32gui.ShowWindow(top_windows[0].get("handler"), win32con.SW_SHOW)
 # win32gui.SetForegroundWindow(top_windows[0].get("handler"))
 
+# for idx, items in enumerate(top_windows):
+#     if items.get("name") and  "Teams" in items.get("name"):
+#         win32gui.ShowWindow(top_windows[idx].get("handler"), win32con.SW_HIDE)
+#         win32gui.SetForegroundWindow(top_windows[idx].get("handler"))
+
+top_windows = []
+win32gui.EnumWindows(get_window_info, top_windows)
+# print(top_windows)
+
 for idx, items in enumerate(top_windows):
-    if items.get("name") and  "Teams" in items.get("name"):
-        win32gui.ShowWindow(top_windows[idx].get("handler"), win32con.SW_HIDE)
-        win32gui.SetForegroundWindow(top_windows[idx].get("handler"))
+    if items.get("name") and "TA Daily" in items.get("name"):
+        handler = top_windows[idx].get("handler")
+        win32gui.ShowWindow(handler, win32con.SW_SHOW)
+        win32gui.SetForegroundWindow(handler)
+        # returns (left, top, right, bottom)
+        print(win32gui.GetWindowRect(handler))
+        print(win32gui.GetWindowPlacement(handler))
+        current_window = win32gui.GetForegroundWindow()
+        print(win32gui.GetWindowText(current_window))
+        is_visible = win32gui.IsWindowVisible(current_window)
+        print(f"Window is visible: {bool(is_visible)}")
+        print(f"Cursor pos: {win32gui.GetCursorPos()}")
+        pos = (1371, 739)
+        win32api.SetCursorPos(pos)
+        win32gui.SetWindowPos(current_window, win32con.HWND_NOTOPMOST, 365, 91, 1496, 880, win32con.TRUE)
+
+
+# Default ouput
+# GetWindowRect: (365, 91, 1496, 880)
+# GetWindowPlacement: (0, 1, (-1, -1), (-1, -1), (263, 86, 1599, 923))
+# GetWindowText: TA Daily Scrum | Microsoft Teams
+# IsWindowVisible: Window is visible: True
+# GetCursorPos: (1605, 51)
