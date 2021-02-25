@@ -183,27 +183,44 @@ for idx, items in enumerate(top_windows):
         print(win32gui.GetWindowPlacement(handler))
         current_window = win32gui.GetForegroundWindow()
         print(win32gui.GetWindowText(current_window))
-        is_visible = win32gui.IsWindowVisible(current_window)
-        print(f"Window is visible: {bool(is_visible)}")
-        print(f"Cursor pos: {win32gui.GetCursorPos()}")
-        pos = (1405, 750)
-        win32api.SetCursorPos(pos)
-
-        # FAILS metnod: Invalid window handle
-        # win32gui.SetWindowPos(handler, win32con.HWND_TOP, 365, 91, 1496, 880, win32con.TRUE)
-        # https://docs.microsoft.com/en-us/windows/win32/winmsg/window-features#tracking-size
-
-        # This method more stable
-        win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
         time.sleep(1)
-        pos = (1405, 750)
-        win32api.SetCursorPos(pos)
-        # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
-        # https://www.programmersought.com/article/98256504655/
-        # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(0.5)
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        is_visible = win32gui.IsWindowVisible(current_window)
+        enabled = win32gui.IsWindowEnabled(current_window)
+        print(f"Window is visible: {bool(is_visible)}")
+        print(f"Window is enabled: {bool(enabled)}")
+        print(f"Cursor pos: {win32gui.GetCursorPos()}")
+
+        enum_child = []
+        def callback_child(current_hwnd, enum_child: list):
+            class_name = win32gui.GetClassName(current_hwnd)
+            enum_child.append(dict(name=class_name, hwnd=current_hwnd))
+
+        win32gui.EnumChildWindows(handler, callback_child, enum_child)
+        print(enum_child)
+        for hndlr in enum_child:
+
+            btnHnd = win32gui.FindWindowEx(hndlr.get("hwnd"), 0, "Button", "Join now")
+            print(btnHnd)
+            win32api.SendMessage(btnHnd, win32con.BM_CLICK, 0, 0)
+
+        # pos = (1405, 750)
+        # win32api.SetCursorPos(pos)
+        #
+        # # FAILS metnod: Invalid window handle
+        # # win32gui.SetWindowPos(handler, win32con.HWND_TOP, 365, 91, 1496, 880, win32con.TRUE)
+        # # https://docs.microsoft.com/en-us/windows/win32/winmsg/window-features#tracking-size
+        #
+        # # This method more stable
+        # win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
+        # time.sleep(1)
+        # pos = (1405, 750)
+        # win32api.SetCursorPos(pos)
+        # # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
+        # # https://www.programmersought.com/article/98256504655/
+        # # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
+        # win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        # time.sleep(0.5)
+        # win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
 # Default ouput
