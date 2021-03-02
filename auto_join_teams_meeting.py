@@ -25,12 +25,13 @@ def _for_debugging_purpose(ensure_dispatch):
     print(sys.modules[ensure_dispatch.__module__].__file__)
 
 
+# Todo: probably remove and use dataclass for storing data
 CalendarEvent = namedtuple("CalendarEvent", ["event_start", "subject", "duration", "organizer", "recurrence",
                                              "is_recurring", "body"])
 
 
 @dataclass(init=False)
-class OutlookFolders:
+class OutlookDataStorage:
     pass
 
 
@@ -41,8 +42,8 @@ class OutlookApi:
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         self.folders = self.enumerate_outlook_folders()
 
-    def enumerate_outlook_folders(self) -> OutlookFolders:
-        folders = OutlookFolders()
+    def enumerate_outlook_folders(self) -> OutlookDataStorage:
+        folders = OutlookDataStorage()
 
         for num in range(50):
 
