@@ -13,21 +13,28 @@ import webbrowser
 import time
 import datetime
 
-
-# Todo: configure Teams path
-# Todo: parse data from calendar outlook
-# Todo: look for TA Daily Scrum
+# Todo: parsed meeting info pack into namedtuple object
 # Todo: check daily when TA scrum start (time, date)
 # Todo: join teams meeting when (1,2 3 time) minutes left
 # Todo: add documentation of pywin32 http://timgolden.me.uk/pywin32-docs/contents.html
 
-# teams_path = "C:/Users/erikas.treskovskis/AppData/Local/Microsoft/Teams/TeamsMeetingAddin/1.0.20.289.5/x86/Microsoft.Teams.AddinLoader.dll"
-
-# os.startfile(teams_path)
-
+# Todo: nice info about pythonCom objects and outlook https://github.com/afester/StackOverflow/blob/master/Python/Win32Com/COMsample.py
 
 def calendar_info():
     outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+
+    # enumerate folders in outlook
+    # https://stackoverflow.com/questions/22813814/clearly-documented-reading-of-emails-functionality-with-python-win32com-outlook/39911751
+    # d = list()
+    # for i in range(100):
+    #     try:
+    #         box = outlook.GetDefaultFolder(i)
+    #         name = box.Name
+    #         d.append((name, i))
+    #     except pywintypes.com_error:
+    #         pass
+    # print(d)
+
     # outlook.getDefaultFolder(9) gives a list of all the meetings from our Outlook calendar
     # outlook.getDefaultFolder(6) gives all emails in the inbox.
 
@@ -51,24 +58,35 @@ def calendar_info():
     for appointments in meeting_plan:
         # Shows when meeting starts
         print(appointments.Start)
+        r = getattr(appointments, "Start")
+        print(r)
+        print(type(appointments.Start))
         print(appointments.Subject)
+        print(type(appointments.Subject))
         print(appointments.Duration)
+        print(type(appointments.Duration))
 
-        print(appointments.MeetingStatus)
+        # print(appointments.MeetingStatus)
 
         # shows organizer name: Bertasius, Ugnius
         print(appointments.GetOrganizer())
+        print(type(appointments.GetOrganizer()))
         # opens Outlook Meeting/Appointment page
         # print(appointments.Display())
         # shows occurrence of meetings
         print(appointments.GetRecurrencePattern())
+        print(type(appointments.GetRecurrencePattern()))
         print(appointments.IsRecurring)
-        # print(appointments.Body)
+        print(type(appointments.IsRecurring))
+        print(appointments.Body)
+        print(type(appointments.Body))
 
         return appointments.Body
 
 
 def parse_meeting_url_from_body(body: str) -> Optional[str]:
+    if not body:
+        raise ValueError("Outlook calendar event (meeting) was not parsed")
     general_url_pattern = re.compile(
         pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
     meeting_join = re.compile(pattern="meetup-join")
@@ -89,10 +107,6 @@ body = calendar_info()
 teams_url = parse_meeting_url_from_body(body)
 open_teams_meet_url(teams_url)
 
-
-# Todo: if dispatch object Outlook.Applicantion is cached then delete it
-#  out = win32com.client.gencache.EnsureDispatch("Outlook.Application")
-#  print(sys.modules[out.__module__].__file__)
 
 # -------------------------------- ENUM invoked windows, get tid, pid, get window name ---------------------------------
 
@@ -241,7 +255,7 @@ def get_window_info(hwnd, top_windows: list):
 # win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
-# Default ouput
+# Default output
 # GetWindowRect: (365, 91, 1496, 880)
 # GetWindowPlacement: (0, 1, (-1, -1), (-1, -1), (263, 86, 1599, 923))
 # GetWindowText: TA Daily Scrum | Microsoft Teams
