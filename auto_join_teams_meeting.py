@@ -1,10 +1,8 @@
 from __future__ import annotations
-import os
 import re
 import sys
-from collections import namedtuple
 from dataclasses import dataclass
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List
 
 import pywintypes
 import win32com.client
@@ -26,11 +24,6 @@ def _for_debugging_purpose(ensure_dispatch):
     print(sys.modules[ensure_dispatch.__module__].__file__)
 
 
-# Todo: probably remove and use dataclass for storing data
-CalendarEvent = namedtuple("CalendarEvent", ["event_start", "subject", "duration", "organizer", "recurrence",
-                                             "is_recurring", "body"])
-
-
 @dataclass(init=False)
 class DataStorage:
     pass
@@ -39,9 +32,9 @@ class DataStorage:
 class OutlookApi:
 
     def __init__(self):
-
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         self.folders = self.enumerate_outlook_folders()
+        self.fail_flag = False
 
     def enumerate_outlook_folders(self) -> DataStorage:
         """ADD DOCS"""
@@ -93,13 +86,13 @@ class OutlookApi:
 
             yield event
 
-    @staticmethod
-    def parse_teams_meet_join_url(meeting_event: DataStorage) -> Optional[str]:
+    def parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Body. If body is absent then open Outlook Meeting Occurrence window"""
 
         if not meeting_event.Body:
             import warnings
-            warnings.warn("Outlook calendar event (meeting) was not parsed")
+            warnings.warn("Outlook calendar event (meeting email BODY) was not parsed")
+            self.fail_flag = True
             return meeting_event.Display()
         general_url_pattern = re.compile(
             pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
@@ -142,3 +135,46 @@ class EnumActiveWindows:
 
         win32gui.EnumWindows(self._get_window_info, self.enum_windows)
         return self.enum_windows
+
+
+enum = EnumActiveWindows()
+data = enum.enumerate_windows
+for d in data:
+    print(d.__dict__)
+
+
+class InvokeEvents:
+
+    # Todo: parse exact names TA Daily Scrum (Teams window) and TA Daily Scrum - Meeting Occurrence (Outlook window)????
+    outlook_window_name = "TA Daily Scrum - Meeting Occurrence"
+    teams_window_name = "TA Daily Scrum"
+    cursor_pos_for_outlook = (735, 186)
+    cursor_teams_join_button = (1405, 750)
+    cursor_microphone_on_off = (1092, 524)
+    cursor_background_filters = (534, 690)
+
+    def retrieve_current_window_handler(self, stored_window: List[DataStorage], flag: bool):
+        """ADD DOCS"""
+
+        cursor_pos_for_outlook = (735, 186)
+        search_pattern = self.teams_window_name
+
+        if not flag:
+            search_pattern = self.outlook_window_name
+
+        for window in stored_window:
+            if window.name and search_pattern in window.name:
+                win32gui.ShowWindow(window.handler, win32con.SW_SHOWNOACTIVATE)
+                win32gui.SetForegroundWindow(window.handler)
+                time.sleep(1)
+                win32gui.MoveWindow(window.handler, 365, 100, 1200, 800, win32con.FALSE)
+                time.sleep(1)
+
+    @staticmethod
+    def left_button_click(dx: int, dy: int):
+        """Add DOCS"""
+
+        win32api.SetCursorPos((dx, dy))
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(0.5)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)

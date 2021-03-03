@@ -214,7 +214,7 @@ print(top_windows)
 for idx, items in enumerate(top_windows):
     # Todo: if URL not parsed then create check: 1.outlook window is open 2. auto-click on outlook join-teams button
     # Todo:
-    if items.get("name") and "TA Daily" in items.get("name"):
+    if items.get("name") and "TA Daily Scrum" in items.get("name"):
         handler = top_windows[idx].get("handler")
         win32gui.ShowWindow(handler, win32con.SW_SHOWNOACTIVATE)
         win32gui.SetForegroundWindow(handler)
@@ -228,18 +228,24 @@ for idx, items in enumerate(top_windows):
         enabled = win32gui.IsWindowEnabled(current_window)
         print(f"Window is visible: {bool(is_visible)}")
         print(f"Window is enabled: {bool(enabled)}")
+        # print("SLEEP 15s")
+        # time.sleep(15)
         print(f"Cursor pos: {win32gui.GetCursorPos()}")
         # This method more stable
         win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
         time.sleep(1)
-        pos = (1405, 750)
-        win32api.SetCursorPos(pos)
+        print("SLEEP 15s")
+        time.sleep(15)
+        print(f"Cursor pos: {win32gui.GetCursorPos()}")
+        # pos = (1405, 750)
+        # win32api.SetCursorPos(pos)
         # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
         # https://www.programmersought.com/article/98256504655/
         # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(0.5)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        break
 
 # enum_child = []
 # def callback_child(current_hwnd, enum_child: list):
