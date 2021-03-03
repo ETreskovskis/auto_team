@@ -54,12 +54,20 @@ def calendar_info():
     end_day = tomorrow_date.date().strftime("%m/%d/%Y")
 
     meeting_plan = calendar.Restrict("[Start] >= '" + begin_day + "' AND [END] <= '" + end_day + "'")
+    try:
+        for app in meeting_plan:
+            print(app.ConversationTopic)
+    except (pywintypes.com_error):
+        pass
 
     for appointments in meeting_plan:
+        # appointments -> MeetingItem: https://docs.microsoft.com/en-us/office/vba/api/outlook.meetingitem
+        # print(appointments.ConversationTopic)
         # Shows when meeting starts
         print(appointments.Start)
         r = getattr(appointments, "Start")
         print(r)
+        print(appointments.End)
         print(type(appointments.Start))
         print(appointments.Subject)
         print(type(appointments.Subject))
@@ -81,10 +89,12 @@ def calendar_info():
         print(appointments.Body)
         print(type(appointments.Body))
 
+        # return MeetingItem object
         return appointments.Body
 
 
 def parse_meeting_url_from_body(body: str) -> Optional[str]:
+    # MeetingItem object is not returned MeetingItem.Display()
     if not body:
         raise ValueError("Outlook calendar event (meeting) was not parsed")
     general_url_pattern = re.compile(
@@ -104,8 +114,8 @@ def open_teams_meet_url(url: str):
 
 
 body = calendar_info()
-teams_url = parse_meeting_url_from_body(body)
-open_teams_meet_url(teams_url)
+# teams_url = parse_meeting_url_from_body(body)
+# open_teams_meet_url(teams_url)
 
 
 # -------------------------------- ENUM invoked windows, get tid, pid, get window name ---------------------------------
@@ -187,10 +197,6 @@ def get_window_info(hwnd, top_windows: list):
     tid, pid = win32process.GetWindowThreadProcessId(hwnd)
     top_windows.append(dict(handler=hwnd, tid=tid, pid=pid, name=win32gui.GetWindowText(hwnd)))
 
-# top_windows = []
-# win32gui.EnumWindows(get_window_info, top_windows)
-# print(top_windows)
-
 # Show window and set as foreground window
 # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
 # win32gui.ShowWindow(top_windows[0].get("handler"), win32con.SW_SHOW)
@@ -201,26 +207,39 @@ def get_window_info(hwnd, top_windows: list):
 #         win32gui.ShowWindow(top_windows[idx].get("handler"), win32con.SW_HIDE)
 #         win32gui.SetForegroundWindow(top_windows[idx].get("handler"))
 
-# top_windows = []
-# win32gui.EnumWindows(get_window_info, top_windows)
-# # print(top_windows)
+top_windows = []
+win32gui.EnumWindows(get_window_info, top_windows)
+print(top_windows)
 #
-# for idx, items in enumerate(top_windows):
-#     if items.get("name") and "TA Daily" in items.get("name"):
-#         handler = top_windows[idx].get("handler")
-#         win32gui.ShowWindow(handler, win32con.SW_SHOWNOACTIVATE)
-#         win32gui.SetForegroundWindow(handler)
-#         # returns (left, top, right, bottom)
-#         print(win32gui.GetWindowRect(handler))
-#         print(win32gui.GetWindowPlacement(handler))
-#         current_window = win32gui.GetForegroundWindow()
-#         print(win32gui.GetWindowText(current_window))
-#         time.sleep(1)
-#         is_visible = win32gui.IsWindowVisible(current_window)
-#         enabled = win32gui.IsWindowEnabled(current_window)
-#         print(f"Window is visible: {bool(is_visible)}")
-#         print(f"Window is enabled: {bool(enabled)}")
-#         print(f"Cursor pos: {win32gui.GetCursorPos()}")
+for idx, items in enumerate(top_windows):
+    # Todo: if URL not parsed then create check: 1.outlook window is open 2. auto-click on outlook join-teams button
+    # Todo:
+    if items.get("name") and "TA Daily" in items.get("name"):
+        handler = top_windows[idx].get("handler")
+        win32gui.ShowWindow(handler, win32con.SW_SHOWNOACTIVATE)
+        win32gui.SetForegroundWindow(handler)
+        # returns (left, top, right, bottom)
+        # print(win32gui.GetWindowRect(handler))
+        # print(win32gui.GetWindowPlacement(handler))
+        current_window = win32gui.GetForegroundWindow()
+        print(win32gui.GetWindowText(current_window))
+        time.sleep(1)
+        is_visible = win32gui.IsWindowVisible(current_window)
+        enabled = win32gui.IsWindowEnabled(current_window)
+        print(f"Window is visible: {bool(is_visible)}")
+        print(f"Window is enabled: {bool(enabled)}")
+        print(f"Cursor pos: {win32gui.GetCursorPos()}")
+        # This method more stable
+        win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
+        time.sleep(1)
+        pos = (1405, 750)
+        win32api.SetCursorPos(pos)
+        # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
+        # https://www.programmersought.com/article/98256504655/
+        # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        time.sleep(0.5)
+        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 # enum_child = []
 # def callback_child(current_hwnd, enum_child: list):
@@ -241,17 +260,17 @@ def get_window_info(hwnd, top_windows: list):
 # # FAILS method: Invalid window handle
 # win32gui.SetWindowPos(handler, win32con.HWND_TOP, 365, 91, 1496, 880, win32con.TRUE)
 # # https://docs.microsoft.com/en-us/windows/win32/winmsg/window-features#tracking-size
-#
+
 # # This method more stable
 # win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
 # time.sleep(1)
 # pos = (1405, 750)
 # win32api.SetCursorPos(pos)
-# # # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
-# # # https://www.programmersought.com/article/98256504655/
-# # # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
+# # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
+# # https://www.programmersought.com/article/98256504655/
+# # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
 # win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-# # time.sleep(0.5)
+# time.sleep(0.5)
 # win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
 
