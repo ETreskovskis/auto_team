@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 import pywintypes
 import win32com.client
@@ -33,10 +33,10 @@ class OutlookApi:
 
     def __init__(self):
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
-        self.folders = self.enumerate_outlook_folders()
+        self.folders = self._enumerate_outlook_folders()
         self.fail_flag = False
 
-    def enumerate_outlook_folders(self) -> DataStorage:
+    def _enumerate_outlook_folders(self) -> DataStorage:
         """ADD DOCS"""
         folders = DataStorage()
 
@@ -50,8 +50,8 @@ class OutlookApi:
 
         return folders
 
-    def sort_calendar_meeting_object(self):
-        """ADD DOCS"""
+    def _sort_calendar_meeting_object(self) -> List:
+        """Sort today`s existing meetings from Outlook Calendar"""
 
         calendar = self.outlook.getDefaultFolder(self.folders.Calendar).Items
         calendar.IncludeRecurrences = True
@@ -69,8 +69,8 @@ class OutlookApi:
         return meeting_plan
 
     @staticmethod
-    def populate_meeting_events(event_items):
-        """ADD DOCS"""
+    def _populate_meeting_events(event_items: List):
+        """Iterate through list of MeetingItem and parse the meeting data"""
 
         for appointment in event_items:
             event = DataStorage()
@@ -86,12 +86,12 @@ class OutlookApi:
 
             yield event
 
-    def parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
+    def _parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Body. If body is absent then open Outlook Meeting Occurrence window"""
 
         if not meeting_event.Body:
             import warnings
-            warnings.warn("Outlook calendar event (meeting email BODY) was not parsed")
+            warnings.warn("Outlook calendar meeting email BODY (meet event) was not parsed")
             self.fail_flag = True
             return meeting_event.Display()
         general_url_pattern = re.compile(
@@ -105,11 +105,19 @@ class OutlookApi:
         return meet_url
 
     @staticmethod
-    def open_teams_meet_via_url(url: str):
+    def _open_teams_meet_via_url(url: str):
         """ADD DOCS"""
 
         full_url = f"msteams:{url}"
         webbrowser.open(full_url)
+
+
+    def main(self, meeting_name):
+        """ADD DOCS"""
+
+        all_meetings = self._sort_calendar_meeting_object()
+        parsed_meeting_data = self._populate_meeting_events(all_meetings)
+        # Todo: continue logic: select TA Scrum meeting, parse url, open url
 
 
 class EnumActiveWindows:
@@ -144,23 +152,18 @@ for d in data:
 
 
 class InvokeEvents:
-
     # Todo: parse exact names TA Daily Scrum (Teams window) and TA Daily Scrum - Meeting Occurrence (Outlook window)????
     outlook_window_name = "TA Daily Scrum - Meeting Occurrence"
     teams_window_name = "TA Daily Scrum"
-    cursor_pos_for_outlook = (735, 186)
+    cursor_for_outlook_ribbon_teams = (735, 186)
     cursor_teams_join_button = (1405, 750)
+    # Todo: implement later on how to interact with multiple buttons
     cursor_microphone_on_off = (1092, 524)
     cursor_background_filters = (534, 690)
 
-    def retrieve_current_window_handler(self, stored_window: List[DataStorage], flag: bool):
+    def retrieve_current_window_handler(self, stored_window: List[DataStorage], pos: Tuple[int, int],
+                                        search_pattern: str):
         """ADD DOCS"""
-
-        cursor_pos_for_outlook = (735, 186)
-        search_pattern = self.teams_window_name
-
-        if not flag:
-            search_pattern = self.outlook_window_name
 
         for window in stored_window:
             if window.name and search_pattern in window.name:
@@ -169,12 +172,29 @@ class InvokeEvents:
                 time.sleep(1)
                 win32gui.MoveWindow(window.handler, 365, 100, 1200, 800, win32con.FALSE)
                 time.sleep(1)
+                self.left_button_click(*pos)
+                break
 
     @staticmethod
     def left_button_click(dx: int, dy: int):
-        """Add DOCS"""
+        """Simulate mouse left button click on provided position"""
 
         win32api.SetCursorPos((dx, dy))
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         time.sleep(0.5)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        time.sleep(0.5)
+
+    def simulate_auto_join(self, stored_window: List[DataStorage], flag: bool):
+        """Add DOCS"""
+
+        # if Teams meet-join URL was parsed without failure
+        if not flag:
+            self.retrieve_current_window_handler(stored_window, search_pattern=self.teams_window_name,
+                                                 pos=self.cursor_teams_join_button)
+            return
+
+        self.retrieve_current_window_handler(stored_window, search_pattern=self.outlook_window_name,
+                                             pos=self.cursor_for_outlook_ribbon_teams)
+        self.retrieve_current_window_handler(stored_window, search_pattern=self.teams_window_name,
+                                             pos=self.cursor_teams_join_button)
