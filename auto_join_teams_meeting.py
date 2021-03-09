@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Tuple
 
 import pywintypes
@@ -24,7 +24,7 @@ def _for_debugging_purpose(ensure_dispatch):
     print(sys.modules[ensure_dispatch.__module__].__file__)
 
 
-@dataclass(init=False)
+@dataclass(init=False, order=True)
 class DataStorage:
     pass
 
@@ -50,6 +50,7 @@ class OutlookApi:
 
         return folders
 
+    # Todo: idea is to sort meetings by provided date. At the moment it retrieves 'todays' meetings
     def _sort_calendar_meeting_object(self) -> List:
         """Sort today`s existing meetings from Outlook Calendar"""
 
@@ -57,7 +58,8 @@ class OutlookApi:
         calendar.IncludeRecurrences = True
         calendar.Sort("[Start]")
 
-        today_date = datetime.datetime.today()
+        # Modify date by needs
+        today_date = datetime.datetime.today() + datetime.timedelta(days=1)
         tomorrow_date = datetime.timedelta(days=1) + today_date
         begin_day = today_date.date().strftime("%m/%d/%Y")
         end_day = tomorrow_date.date().strftime("%m/%d/%Y")
@@ -78,9 +80,9 @@ class OutlookApi:
             setattr(event, "End", appointment.End)
             setattr(event, "Subject", appointment.Subject)
             setattr(event, "Duration", appointment.Duration)
-            setattr(event, "GetOrganizer", appointment.GetOrganizer())
+            setattr(event, "GetOrganizer", appointment.GetOrganizer().__str__())
             setattr(event, "IsRecurring", appointment.IsRecurring)
-            setattr(event, "GetRecurrencePattern", appointment.GetRecurrencePattern())
+            setattr(event, "GetRecurrencePattern", appointment.GetRecurrencePattern().__int__())
             setattr(event, "Body", appointment.Body)
             setattr(event, "Display", appointment.Display)
 
@@ -112,11 +114,13 @@ class OutlookApi:
         webbrowser.open(full_url)
 
 
-    def main(self, meeting_name):
+    # Todo: just an idea
+    def main(self):
         """ADD DOCS"""
 
         all_meetings = self._sort_calendar_meeting_object()
         parsed_meeting_data = self._populate_meeting_events(all_meetings)
+        return parsed_meeting_data
         # Todo: continue logic: select TA Scrum meeting, parse url, open url
 
 
@@ -143,12 +147,6 @@ class EnumActiveWindows:
 
         win32gui.EnumWindows(self._get_window_info, self.enum_windows)
         return self.enum_windows
-
-
-enum = EnumActiveWindows()
-data = enum.enumerate_windows
-for d in data:
-    print(d.__dict__)
 
 
 class InvokeEvents:
@@ -198,3 +196,13 @@ class InvokeEvents:
                                              pos=self.cursor_for_outlook_ribbon_teams)
         self.retrieve_current_window_handler(stored_window, search_pattern=self.teams_window_name,
                                              pos=self.cursor_teams_join_button)
+
+
+outlook = OutlookApi()
+meetings = outlook.main()
+print(list(meetings)[-1].__dict__)
+
+# enum = EnumActiveWindows()
+# data = enum.enumerate_windows
+# for d in data:
+#     print(d.__dict__)
