@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 import sys
+import warnings
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Tuple
 
@@ -14,7 +15,7 @@ import webbrowser
 import time
 import datetime
 
-
+# Todo: add func to start Outlook if it closed
 def _for_debugging_purpose(ensure_dispatch):
     """If Dispatch object Outlook.Application is cached then delete the file. This may happen when
     win32com.client.gencache.EnsureDispatch("Outlook.Application") was called
@@ -88,11 +89,11 @@ class OutlookApi:
 
             yield event
 
+    # Todo: create email body and URL validators
     def _parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Body. If body is absent then open Outlook Meeting Occurrence window"""
 
         if not meeting_event.Body:
-            import warnings
             warnings.warn("Outlook calendar meeting email BODY (meet event) was not parsed")
             self.fail_flag = True
             return meeting_event.Display()
@@ -100,6 +101,12 @@ class OutlookApi:
             pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         meeting_join = re.compile(pattern="meetup-join")
         results = re.findall(general_url_pattern, string=meeting_event.Body)
+
+        if not results:
+            warnings.warn(f"email URL is missing in email body")
+            self.fail_flag = True
+            return meeting_event.Display()
+
         format_result = [url.strip(">") for url in results]
         without_https = [url.strip("https:") for url in format_result]
 
@@ -114,14 +121,25 @@ class OutlookApi:
         webbrowser.open(full_url)
 
 
-    # Todo: just an idea
+    # Todo: just an idea. Put all together
     def main(self):
         """ADD DOCS"""
 
         all_meetings = self._sort_calendar_meeting_object()
-        parsed_meeting_data = self._populate_meeting_events(all_meetings)
-        return parsed_meeting_data
+        parsed_meeting_data = ((meeting.Start, meeting)for meeting in self._populate_meeting_events(all_meetings))
+        # sort meetings by time
+        sorted_meetings = sorted(parsed_meeting_data)
+        # Todo: add wait. Wait for provided meeting time before 5min had passed - join the meeting
         # Todo: continue logic: select TA Scrum meeting, parse url, open url
+        for _, meeting in sorted_meetings:
+            search_result = self._parse_teams_meet_join_url(meeting)
+            if not search_result:
+                print(meeting.__dict__)
+                return search_result
+
+            self._open_teams_meet_via_url(search_result)
+            # Todo: test only one item
+            break
 
 
 class EnumActiveWindows:
@@ -150,6 +168,9 @@ class EnumActiveWindows:
 
 
 class InvokeEvents:
+    # Todo: initialize meeting names. Create names as class instances not as attributes
+    # Todo: IMPORTANT!!! THERE IS two type: "meeting name - Meeting" "meetinga name - Meeting Occurrence"!!!!!
+    test_meeting = ""
     # Todo: parse exact names TA Daily Scrum (Teams window) and TA Daily Scrum - Meeting Occurrence (Outlook window)????
     outlook_window_name = "TA Daily Scrum - Meeting Occurrence"
     teams_window_name = "TA Daily Scrum"
@@ -199,8 +220,10 @@ class InvokeEvents:
 
 
 outlook = OutlookApi()
-meetings = outlook.main()
-print(list(meetings)[-1].__dict__)
+result = outlook.main()
+# meeting1, meeting2 = list(meetings)
+# print(meeting1)
+# print(sorted(meetings))
 
 # enum = EnumActiveWindows()
 # data = enum.enumerate_windows
