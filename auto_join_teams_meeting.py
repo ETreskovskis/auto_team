@@ -16,6 +16,7 @@ import time
 import datetime
 
 # Todo: add func to start Outlook if it closed
+# Todo: what if there are two or more accounts and it has different calendars????
 def _for_debugging_purpose(ensure_dispatch):
     """If Dispatch object Outlook.Application is cached then delete the file. This may happen when
     win32com.client.gencache.EnsureDispatch("Outlook.Application") was called
@@ -67,6 +68,7 @@ class OutlookApi:
 
         # return Items collection of MeetingItem
         # https://docs.microsoft.com/en-us/office/vba/api/outlook.items.restrict
+        # https://docs.microsoft.com/en-us/office/vba/api/outlook.meetingitem
         meeting_plan = calendar.Restrict("[Start] >= '" + begin_day + "' AND [END] <= '" + end_day + "'")
 
         return meeting_plan
@@ -74,8 +76,36 @@ class OutlookApi:
     @staticmethod
     def _populate_meeting_events(event_items: List):
         """Iterate through list of MeetingItem and parse the meeting data"""
-
+        url = " http://schemas.microsoft.com/mapi/string/{00020329-0000-0000-C000-000000000046}/OnlineMeetingConfLink"
         for appointment in event_items:
+            p = appointment.ItemProperties
+            try:
+                for i in range(120):
+                    print(p.Item(i))
+            except pywintypes.com_error:
+                pass
+            # print(appointment.Location)
+            # print(appointment.Class)
+            # print(appointment.Session)
+            # print(appointment.StartUTC)
+            # print(appointment.UserProperties)
+            # print(appointment.Attachments)
+            # print(appointment.Application)
+            # print(appointment.EntryID)
+            # print(appointment.GlobalAppointmentID)
+            # print(appointment.IsOnlineMeeting)
+            # print(appointment.ItemProperties)
+            # print(appointment.Links)
+            # print(appointment.MeetingStatus)
+            # print(appointment.Recipients)
+            # print(appointment.ReminderMinutesBeforeStart)
+            # print(appointment.GetConversation())
+            # print(appointment.MeetingWorkspaceURL)
+            # print(appointment.MeetingWorkspaceURL)
+            # print(appointment.IsOnlineMeeting)
+            # inspector = appointment.GetInspector
+            # print(inspector.Top)
+            # print(inspector.CommandBars.LargeButtons)
             event = DataStorage()
             setattr(event, "Start", appointment.Start)
             setattr(event, "End", appointment.End)
@@ -134,7 +164,7 @@ class OutlookApi:
         for _, meeting in sorted_meetings:
             search_result = self._parse_teams_meet_join_url(meeting)
             if not search_result:
-                print(meeting.__dict__)
+                # print(meeting.__dict__)
                 return search_result
 
             self._open_teams_meet_via_url(search_result)
