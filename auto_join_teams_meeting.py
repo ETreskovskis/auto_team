@@ -2,8 +2,9 @@ from __future__ import annotations
 import re
 import sys
 import warnings
-from dataclasses import dataclass, field, asdict
-from typing import Optional, List, Tuple
+from dataclasses import dataclass
+from typing import Optional, List, Tuple, Generator, Any
+from concurrent.futures import ThreadPoolExecutor
 
 import pywintypes
 import win32com.client
@@ -14,6 +15,7 @@ import win32con
 import webbrowser
 import time
 import datetime
+
 
 # Todo: add func to start Outlook if it closed
 # Todo: what if there are two or more accounts and it has different calendars????
@@ -63,7 +65,7 @@ class OutlookApi:
             for num in range(120):
                 event_data.append(properties.Item(num).__str__())
         except pywintypes.com_error:
-                pass
+            pass
         return event_data
 
     # Todo: idea is to sort meetings by provided date. At the moment it retrieves 'todays' meetings
@@ -87,7 +89,7 @@ class OutlookApi:
 
         return meeting_plan
 
-    def _populate_meeting_events(self, event_items: List):
+    def _populate_meeting_events(self, event_items: List) -> Generator[DataStorage, None, None]:
         """Iterate through list of MeetingItem and parse the meeting data"""
         for appointment in event_items:
             appointment_properties = self._get_event_item_properties(appointment)
@@ -132,35 +134,54 @@ class OutlookApi:
             return meeting_event.Display()
 
     @staticmethod
-    def _open_teams_meet_via_url(url: str):
-        """ADD DOCS"""
+    def _open_teams_meet_via_url(url: str) -> bool:
+        """Open Teams via URL"""
 
-        full_url = f"msteams:{url}"
-        webbrowser.open(full_url)
+        try:
+            full_url = f"msteams:{url}"
+            return webbrowser.open(full_url)
+        except Exception as error:
+            msg_error, *_ = error.args
+            print(msg_error)
 
+    def _meeting_time_and_url_mapper(self, meetings: List) -> List[Tuple[float, str, Any]]:
+        """Get meeting time and URL. Map them together."""
 
-    # Todo: just an idea. Put all together
+        waiting_process = list()
+        for meet_start, meeting_object in meetings:
+            search_result = self._parse_teams_meet_join_url(meeting_object)
+            meeting_time = datetime.datetime(meet_start.year, meet_start.month, meet_start.day, meet_start.hour,
+                                             meet_start.minute, meet_start.second)
+            waiting_time = meeting_time - datetime.datetime.now()
+
+            waiting_process.append((waiting_time.total_seconds(), search_result, meeting_object))
+        return waiting_process
+
+    def _wait_for_meeting(self, meeting_data: Tuple[int, str, Any]) -> bool:
+        """Wait for meeting. Join the meeting 3 minutes before start"""
+
+        seconds, url, meet_object = meeting_data
+        text = f"Meeting via Teams which start at: {meet_object.Start} - Subject: {meet_object.Subject} " \
+               f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
+        print(text)
+        time_to_wait = seconds - 3 * 60
+        time.sleep(time_to_wait)
+        return self._open_teams_meet_via_url(url)
+
     def main(self):
-        """ADD DOCS"""
+        """Main method of Outlook calendar logic."""
 
         all_meetings = self._sort_calendar_meeting_object()
-        parsed_meeting_data = ((meeting.Start, meeting)for meeting in self._populate_meeting_events(all_meetings))
+        parsed_meeting_data = ((meeting.Start, meeting) for meeting in self._populate_meeting_events(all_meetings))
         # sort meetings by time
         sorted_meetings = sorted(parsed_meeting_data)
-        # Todo: add wait. Wait for provided meeting time before 5min had passed - join the meeting
-        # Todo: continue logic: select TA Scrum meeting, parse url, open url
-        print(len(sorted_meetings))
-        for _, meeting in sorted_meetings:
-            search_result = self._parse_teams_meet_join_url(meeting)
-            print(search_result)
+        waiting_process = self._meeting_time_and_url_mapper(sorted_meetings)
 
-            # if not search_result:
-            #     # print(meeting.__dict__)
-            #     return search_result
-            #
-            # self._open_teams_meet_via_url(search_result)
-            # # Todo: test only one item
-            # break
+        with ThreadPoolExecutor() as executor:
+            results = executor.map(self._wait_for_meeting, waiting_process)
+
+            for meet_result in results:
+                print(f"Meeting starts in 3min. Window is open: {meet_result}")
 
 
 class EnumActiveWindows:
@@ -195,15 +216,18 @@ class InvokeEvents:
     # Todo: parse exact names TA Daily Scrum (Teams window) and TA Daily Scrum - Meeting Occurrence (Outlook window)????
     outlook_window_name = "TA Daily Scrum - Meeting Occurrence"
     teams_window_name = "TA Daily Scrum"
+    micro_teams = "Microsoft Teams"
     cursor_for_outlook_ribbon_teams = (735, 186)
     cursor_teams_join_button = (1405, 750)
     # Todo: implement later on how to interact with multiple buttons
     cursor_microphone_on_off = (1092, 524)
     cursor_background_filters = (534, 690)
 
+    # Todo: refactor method. add flags which buttons should be disabled. remove filtering EnumActiveWindows should handle this
     def retrieve_current_window_handler(self, stored_window: List[DataStorage], pos: Tuple[int, int],
                                         search_pattern: str):
-        """ADD DOCS"""
+        """Retrieve window handler by search pattern. Set window as foreground window and resize it. Perform button
+        click"""
 
         for window in stored_window:
             if window.name and search_pattern in window.name:
@@ -225,6 +249,7 @@ class InvokeEvents:
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         time.sleep(0.5)
 
+    # Todo: refactor method.
     def simulate_auto_join(self, stored_window: List[DataStorage], flag: bool):
         """Add DOCS"""
 
@@ -240,11 +265,28 @@ class InvokeEvents:
                                              pos=self.cursor_teams_join_button)
 
 
-outlook = OutlookApi()
-result = outlook.main()
+if __name__ == '__main__':
+    # outlook = OutlookApi()
+    # outlook.main()
 
+    # Todo: How to identify correct Teams active window???
+    # Todo: check active teams windows before and after session started = investigate difference by pattern
+    search = InvokeEvents.micro_teams
+    enum = EnumActiveWindows()
+    data = enum.enumerate_windows
+    _sorted = [win.name for win in data if search in win.name]
+    from pprint import pprint
 
-# enum = EnumActiveWindows()
-# data = enum.enumerate_windows
-# for d in data:
-#     print(d.__dict__)
+    pprint(_sorted)
+    before_teams = ['Microsoft Teams Notification',
+                    'GPDM - Product Document Management Work Instruction Session (2 of 5) | '
+                    'Microsoft Teams']
+    after = ['Microsoft Teams Notification',
+             'GPDM - Product Document Management Work Instruction Session (2 of 5) | '
+             'Microsoft Teams',
+             'TA Daily Scrum | Microsoft Teams']
+
+    before_set = set(before_teams)
+    after_set = set(after)
+    difference = after_set.difference(before_set)
+
