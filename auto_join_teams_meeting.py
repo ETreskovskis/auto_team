@@ -52,6 +52,20 @@ class OutlookApi:
 
         return folders
 
+    @staticmethod
+    def _get_event_item_properties(event) -> List[str]:
+        """Introspect each scheduled event properties and retrieve everything"""
+
+        properties = event.ItemProperties
+        event_data = list()
+
+        try:
+            for num in range(120):
+                event_data.append(properties.Item(num).__str__())
+        except pywintypes.com_error:
+                pass
+        return event_data
+
     # Todo: idea is to sort meetings by provided date. At the moment it retrieves 'todays' meetings
     def _sort_calendar_meeting_object(self) -> List:
         """Sort today`s existing meetings from Outlook Calendar"""
@@ -73,75 +87,49 @@ class OutlookApi:
 
         return meeting_plan
 
-    @staticmethod
-    def _populate_meeting_events(event_items: List):
+    def _populate_meeting_events(self, event_items: List):
         """Iterate through list of MeetingItem and parse the meeting data"""
-        url = " http://schemas.microsoft.com/mapi/string/{00020329-0000-0000-C000-000000000046}/OnlineMeetingConfLink"
         for appointment in event_items:
-            p = appointment.ItemProperties
-            try:
-                for i in range(120):
-                    print(p.Item(i))
-            except pywintypes.com_error:
-                pass
-            # print(appointment.Location)
-            # print(appointment.Class)
-            # print(appointment.Session)
-            # print(appointment.StartUTC)
-            # print(appointment.UserProperties)
-            # print(appointment.Attachments)
-            # print(appointment.Application)
-            # print(appointment.EntryID)
-            # print(appointment.GlobalAppointmentID)
-            # print(appointment.IsOnlineMeeting)
-            # print(appointment.ItemProperties)
-            # print(appointment.Links)
-            # print(appointment.MeetingStatus)
-            # print(appointment.Recipients)
-            # print(appointment.ReminderMinutesBeforeStart)
-            # print(appointment.GetConversation())
-            # print(appointment.MeetingWorkspaceURL)
-            # print(appointment.MeetingWorkspaceURL)
-            # print(appointment.IsOnlineMeeting)
-            # inspector = appointment.GetInspector
-            # print(inspector.Top)
-            # print(inspector.CommandBars.LargeButtons)
+            appointment_properties = self._get_event_item_properties(appointment)
             event = DataStorage()
             setattr(event, "Start", appointment.Start)
             setattr(event, "End", appointment.End)
             setattr(event, "Subject", appointment.Subject)
             setattr(event, "Duration", appointment.Duration)
+            setattr(event, "Location", appointment.Location)
             setattr(event, "GetOrganizer", appointment.GetOrganizer().__str__())
             setattr(event, "IsRecurring", appointment.IsRecurring)
             setattr(event, "GetRecurrencePattern", appointment.GetRecurrencePattern().__int__())
             setattr(event, "Body", appointment.Body)
             setattr(event, "Display", appointment.Display)
+            setattr(event, "Properties", appointment_properties)
 
             yield event
 
-    # Todo: create email body and URL validators
     def _parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
-        """Parse Teams meet-join url from event Body. If body is absent then open Outlook Meeting Occurrence window"""
+        """Parse Teams meet-join url from event Properties. If URL is absent then open Outlook Meeting Occurrence window
+        """
 
-        if not meeting_event.Body:
-            warnings.warn("Outlook calendar meeting email BODY (meet event) was not parsed")
-            self.fail_flag = True
-            return meeting_event.Display()
+        meet_properties = meeting_event.Properties
+        meet_url = None
+
         general_url_pattern = re.compile(
             pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         meeting_join = re.compile(pattern="meetup-join")
-        results = re.findall(general_url_pattern, string=meeting_event.Body)
+        for items in meet_properties:
+            result = re.findall(general_url_pattern, string=items)
+            if result:
+                format_result = [url.strip(">") for url in result]
+                removed_https_prefix = [url.strip("https:") for url in format_result]
+                meet_url = [url for url in removed_https_prefix if re.search(meeting_join, url)]
 
-        if not results:
-            warnings.warn(f"email URL is missing in email body")
+                if meet_url:
+                    return meet_url[0]
+
+        if not meet_url:
+            warnings.warn("Meeting URL ir missing!")
             self.fail_flag = True
             return meeting_event.Display()
-
-        format_result = [url.strip(">") for url in results]
-        without_https = [url.strip("https:") for url in format_result]
-
-        meet_url, *_ = [url for url in without_https if re.search(meeting_join, url)]
-        return meet_url
 
     @staticmethod
     def _open_teams_meet_via_url(url: str):
@@ -161,15 +149,18 @@ class OutlookApi:
         sorted_meetings = sorted(parsed_meeting_data)
         # Todo: add wait. Wait for provided meeting time before 5min had passed - join the meeting
         # Todo: continue logic: select TA Scrum meeting, parse url, open url
+        print(len(sorted_meetings))
         for _, meeting in sorted_meetings:
             search_result = self._parse_teams_meet_join_url(meeting)
-            if not search_result:
-                # print(meeting.__dict__)
-                return search_result
+            print(search_result)
 
-            self._open_teams_meet_via_url(search_result)
-            # Todo: test only one item
-            break
+            # if not search_result:
+            #     # print(meeting.__dict__)
+            #     return search_result
+            #
+            # self._open_teams_meet_via_url(search_result)
+            # # Todo: test only one item
+            # break
 
 
 class EnumActiveWindows:
@@ -251,9 +242,7 @@ class InvokeEvents:
 
 outlook = OutlookApi()
 result = outlook.main()
-# meeting1, meeting2 = list(meetings)
-# print(meeting1)
-# print(sorted(meetings))
+
 
 # enum = EnumActiveWindows()
 # data = enum.enumerate_windows
