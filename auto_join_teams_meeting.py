@@ -211,10 +211,6 @@ class EnumActiveWindows:
 
 class InvokeEvents:
     # Todo: initialize meeting names. Create names as class instances not as attributes
-    # Todo: IMPORTANT!!! THERE IS two type: "meeting name - Meeting" "meetinga name - Meeting Occurrence"!!!!!
-    test_meeting = ""
-    # Todo: parse exact names TA Daily Scrum (Teams window) and TA Daily Scrum - Meeting Occurrence (Outlook window)????
-    outlook_window_name = "TA Daily Scrum - Meeting Occurrence"
     teams_window_name = "TA Daily Scrum"
     micro_teams = "Microsoft Teams"
     cursor_for_outlook_ribbon_teams = (735, 186)
