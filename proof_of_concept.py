@@ -247,12 +247,12 @@ for idx, items in enumerate(top_windows):
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         break
 
-# enum_child = []
-# def callback_child(current_hwnd, enum_child: list):
-#     class_name = win32gui.GetClassName(current_hwnd)
-#     enum_child.append(dict(name=class_name, hwnd=current_hwnd))
+enum_child = []
+def callback_child(current_hwnd, enum_child: list):
+    class_name = win32gui.GetClassName(current_hwnd)
+    enum_child.append(dict(name=class_name, hwnd=current_hwnd))
 
-# win32gui.EnumChildWindows(handler, callback_child, enum_child)
+win32gui.EnumChildWindows(handler, callback_child, enum_child)
 # print(enum_child)
 # for hndlr in enum_child:
 #

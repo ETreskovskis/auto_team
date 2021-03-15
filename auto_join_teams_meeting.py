@@ -205,6 +205,8 @@ class EnumActiveWindows:
         setattr(window_info, "pid", pid)
         setattr(window_info, "name", win32gui.GetWindowText(hwnd))
         setattr(window_info, "class_name", win32gui.GetClassName(hwnd))
+        # setattr(window_info, "context", win32gui.GetDC(hwnd))
+        # print(win32gui.GetStockObject(hwnd))
         enum_windows.append(window_info)
 
     @property
@@ -217,6 +219,26 @@ class EnumActiveWindows:
 
 class InvokeEvents:
     # Todo: initialize meeting names. Create names as class instances not as attributes
+    """Control Type Identifiers:
+    https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-controltype-ids
+
+
+    Control Pattern Identifiers:
+    https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-controlpattern-ids
+
+    Property ID:
+    Refer https://docs.microsoft.com/en-us/windows/desktop/WinAuto/uiauto-automation-element-propids
+    Refer https://docs.microsoft.com/en-us/windows/desktop/WinAuto/uiauto-control-pattern-propids
+
+    Accessible Role:
+    https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblerole?view=netframework-4.8
+
+    Accessible State:
+    https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblestates?view=netframework-4.8
+    """
+
+
+
     teams_window_name = "TA Daily Scrum"
     micro_teams = "Microsoft Teams"
     cursor_for_outlook_ribbon_teams = (735, 186)
@@ -287,6 +309,22 @@ if __name__ == '__main__':
     win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
            ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
            ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
+
+
+    enum_child = []
+
+    def callback_child(current_hwnd, enum_child: list):
+        class_name = win32gui.GetClassName(current_hwnd)
+        text = win32gui.GetWindowText(current_hwnd)
+        visible = win32gui.IsWindowVisible(current_hwnd)
+        enum_child.append(dict(name=class_name, hwnd=current_hwnd, text=text, visible=visible))
+
+
+    for _, _, handler in before_teams[1:-1]:
+
+        win32gui.EnumChildWindows(handler, callback_child, enum_child)
+
+    print(enum_child)
 
     # outlook = OutlookApi()
     # outlook.main()
