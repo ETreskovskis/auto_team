@@ -1,20 +1,21 @@
 from __future__ import annotations
+
+import datetime
 import re
 import sys
+import time
 import warnings
+import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional, List, Tuple, Generator, Any
-from concurrent.futures import ThreadPoolExecutor
 
 import pywintypes
-import win32com.client
-import win32process
-import win32gui
 import win32api
+import win32com.client
 import win32con
-import webbrowser
-import time
-import datetime
+import win32gui
+import win32process
 
 
 # Todo: add func to start Outlook if it closed
@@ -56,7 +57,11 @@ class OutlookApi:
 
     @staticmethod
     def _get_event_item_properties(event) -> List[str]:
-        """Introspect each scheduled event properties and retrieve everything"""
+        """Introspect each scheduled event properties and retrieve everything
+        https://docs.microsoft.com/en-us/office/vba/api/outlook.itemproperties
+        https://office365itpros.com/2019/10/29/outlook-properties-mark-online-meetings/
+        https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-ascal/aa63e887-2e0c-487f-a1a9-d4466708a31b
+        """
 
         properties = event.ItemProperties
         event_data = list()
@@ -77,7 +82,7 @@ class OutlookApi:
         calendar.Sort("[Start]")
 
         # Modify date by needs
-        today_date = datetime.datetime.today() + datetime.timedelta(days=1)
+        today_date = datetime.datetime.today()
         tomorrow_date = datetime.timedelta(days=1) + today_date
         begin_day = today_date.date().strftime("%m/%d/%Y")
         end_day = tomorrow_date.date().strftime("%m/%d/%Y")
@@ -199,6 +204,7 @@ class EnumActiveWindows:
         setattr(window_info, "tid", tid)
         setattr(window_info, "pid", pid)
         setattr(window_info, "name", win32gui.GetWindowText(hwnd))
+        setattr(window_info, "class_name", win32gui.GetClassName(hwnd))
         enum_windows.append(window_info)
 
     @property
@@ -262,6 +268,8 @@ class InvokeEvents:
 
 
 if __name__ == '__main__':
+    from pprint import pprint
+
     # outlook = OutlookApi()
     # outlook.main()
 
@@ -270,19 +278,24 @@ if __name__ == '__main__':
     search = InvokeEvents.micro_teams
     enum = EnumActiveWindows()
     data = enum.enumerate_windows
-    _sorted = [win.name for win in data if search in win.name]
-    from pprint import pprint
+    before_teams = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
+    # before_set = set(before_teams)
+    pprint(before_teams)
+    # pprint(before_set)
 
-    pprint(_sorted)
-    before_teams = ['Microsoft Teams Notification',
-                    'GPDM - Product Document Management Work Instruction Session (2 of 5) | '
-                    'Microsoft Teams']
-    after = ['Microsoft Teams Notification',
-             'GPDM - Product Document Management Work Instruction Session (2 of 5) | '
-             'Microsoft Teams',
-             'TA Daily Scrum | Microsoft Teams']
+    # one is a channel, second is "joined-call"
+    win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
+           ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
+           ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
 
-    before_set = set(before_teams)
-    after_set = set(after)
-    difference = after_set.difference(before_set)
+    # outlook = OutlookApi()
+    # outlook.main()
 
+    # new_data = enum.enumerate_windows
+    # after_teams = [win.name for win in new_data if search in win.name]
+    # after_set = set(after_teams)
+    # pprint(after_teams)
+    # pprint(after_set)
+    #
+    # difference = after_set.difference(before_set)
+    # print(difference)
