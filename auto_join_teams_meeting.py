@@ -302,7 +302,7 @@ if __name__ == '__main__':
     data = enum.enumerate_windows
     before_teams = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
     # before_set = set(before_teams)
-    pprint(before_teams)
+    # pprint(before_teams)
     # pprint(before_set)
 
     # one is a channel, second is "joined-call"
@@ -317,14 +317,33 @@ if __name__ == '__main__':
         class_name = win32gui.GetClassName(current_hwnd)
         text = win32gui.GetWindowText(current_hwnd)
         visible = win32gui.IsWindowVisible(current_hwnd)
-        enum_child.append(dict(name=class_name, hwnd=current_hwnd, text=text, visible=visible))
+        tid, pid = win32process.GetWindowThreadProcessId(current_hwnd)
+        enum_child.append(dict(name=class_name, hwnd=current_hwnd, text=text, visible=visible, tid=tid, pid=pid))
 
 
-    for _, _, handler in before_teams[1:-1]:
+    for _, _, handler in before_teams:
 
         win32gui.EnumChildWindows(handler, callback_child, enum_child)
 
-    print(enum_child)
+    # print(enum_child)
+
+    import comtypes
+    import comtypes.client
+
+    uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
+    # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
+    _iui_auto= uiauto_core.IUIAutomation
+    print(dir(_iui_auto))
+    # Reference for UUID https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ff384838(v=vs.85)
+    uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
+
+    # Note:!!
+    # Can not load UIAutomationCore.dll.\nYou may need to install Windows Update KB971513.
+    # \nhttps://github.com/yinkaisheng/WindowsUpdateKB971513ForIUIAutomation'
+
+    iui_automation = comtypes.client.CreateObject(uuid, interface=_iui_auto)
+    view_walker = iui_automation.RawViewWalker
+    print(dir(view_walker))
 
     # outlook = OutlookApi()
     # outlook.main()
