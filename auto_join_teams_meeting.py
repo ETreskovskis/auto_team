@@ -353,7 +353,8 @@ if __name__ == '__main__':
 
     import re
 
-    # Todo: get open window.handler (id)
+    # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
+    #  otherwise "Camera" ControlType would not be found!!!
     child_sub = list()
     for subling in iterate_over_elements(raw_view_walker, root_element):
         match = re.search(pattern="Microsoft Teams", string=subling.CurrentName.__str__())
@@ -362,14 +363,11 @@ if __name__ == '__main__':
 
     print(child_sub)
 
+    # =========================== Get ControlType Document 50030 ==================================
     get_document_control, *_ = [element for element in
                                 map(raw_view_walker.GetFirstChildElement, child_sub) if
                                 element.CurrentControlType == 50030]
     print(get_document_control)
-
-    # =========================== Get ControlType Document 50030 ==================================
-    # subling_document_control, *_ = [item_pointer for control, item_pointer in get_pane_sub_childs if control == 50030]
-    # print(subling_document_control)
 
     def _print_bouding_rectangle(pointer_item):
         print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
