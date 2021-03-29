@@ -369,6 +369,9 @@ if __name__ == '__main__':
                                 element.CurrentControlType == 50030]
     print(get_document_control)
 
+    # Todo: DOUBLE check if window is has active flag if not make it visible/display
+    #  otherwise "Camera" ControlType would not be found!!!
+
     def _print_bouding_rectangle(pointer_item):
         print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
         print(f"Top: {pointer_item.CurrentBoundingRectangle.top}")
