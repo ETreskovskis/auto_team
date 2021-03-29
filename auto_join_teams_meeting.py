@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import _ctypes
 import datetime
 import re
 import sys
@@ -237,8 +238,6 @@ class InvokeEvents:
     https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblestates?view=netframework-4.8
     """
 
-
-
     teams_window_name = "TA Daily Scrum"
     micro_teams = "Microsoft Teams"
     cursor_for_outlook_ribbon_teams = (735, 186)
@@ -302,7 +301,7 @@ if __name__ == '__main__':
     data = enum.enumerate_windows
     before_teams = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
     # before_set = set(before_teams)
-    # pprint(before_teams)
+    pprint(before_teams)
     # pprint(before_set)
 
     # one is a channel, second is "joined-call"
@@ -310,21 +309,20 @@ if __name__ == '__main__':
            ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
            ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
 
-
-    enum_child = []
-
-    def callback_child(current_hwnd, enum_child: list):
-        class_name = win32gui.GetClassName(current_hwnd)
-        text = win32gui.GetWindowText(current_hwnd)
-        visible = win32gui.IsWindowVisible(current_hwnd)
-        tid, pid = win32process.GetWindowThreadProcessId(current_hwnd)
-        enum_child.append(dict(name=class_name, hwnd=current_hwnd, text=text, visible=visible, tid=tid, pid=pid))
-
-
-    for _, _, handler in before_teams:
-
-        win32gui.EnumChildWindows(handler, callback_child, enum_child)
-
+    # enum_child = []
+    #
+    # def callback_child(current_hwnd, enum_child: list):
+    #     class_name = win32gui.GetClassName(current_hwnd)
+    #     text = win32gui.GetWindowText(current_hwnd)
+    #     visible = win32gui.IsWindowVisible(current_hwnd)
+    #     tid, pid = win32process.GetWindowThreadProcessId(current_hwnd)
+    #     enum_child.append(dict(name=class_name, hwnd=current_hwnd, text=text, visible=visible, tid=tid, pid=pid))
+    #
+    #
+    # for _, _, handler in before_teams:
+    #
+    #     win32gui.EnumChildWindows(handler, callback_child, enum_child)
+    #
     # print(enum_child)
 
     import comtypes
@@ -332,8 +330,8 @@ if __name__ == '__main__':
 
     uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
     # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
-    _iui_auto= uiauto_core.IUIAutomation
-    print(dir(_iui_auto))
+    _iui_auto = uiauto_core.IUIAutomation
+    # print(dir(_iui_auto))
     # Reference for UUID https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ff384838(v=vs.85)
     uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
 
@@ -342,17 +340,109 @@ if __name__ == '__main__':
     # \nhttps://github.com/yinkaisheng/WindowsUpdateKB971513ForIUIAutomation'
 
     iui_automation = comtypes.client.CreateObject(uuid, interface=_iui_auto)
-    view_walker = iui_automation.RawViewWalker
-    print(dir(view_walker))
+    control_view_walker = iui_automation.ControlViewWalker
+    # print(dir(iui_automation))
+    raw_view_walker = iui_automation.RawViewWalker
+    root_element = iui_automation.GetRootElement()
 
-    # outlook = OutlookApi()
-    # outlook.main()
 
-    # new_data = enum.enumerate_windows
-    # after_teams = [win.name for win in new_data if search in win.name]
-    # after_set = set(after_teams)
-    # pprint(after_teams)
-    # pprint(after_set)
-    #
-    # difference = after_set.difference(before_set)
-    # print(difference)
+    # print(dir(raw_view_walker))
+    # print(root_element)
+    # print(f'CurrentNativeWindowHandle: {root_element.CurrentNativeWindowHandle}')
+    # print(f"CurrentControlType: {root_element.CurrentControlType}")
+    # print(f"CurrentClassName: {root_element.CurrentClassName}")
+    # print(root_element.CurrentName if root_element.CurrentName else '')
+    # print(root_element.CurrentProcessId)
+
+    def iterate_over_elements(walker, root_element, max_dep=0xFFFFFFFF):
+        child = walker.GetFirstChildElement(root_element)
+        if not child:
+            yield None
+        depth = 0
+        while max_dep >= depth:
+            subling = walker.GetNextSiblingElement(child)
+            # print(subling.CurrentControlType)
+            if subling:
+                yield subling
+                child = subling
+                # print(child.CurrentName)
+                depth += 1
+            else:
+                break
+
+
+    def print_ui_element_info(element):
+        print(40 * "=")
+        print(f"Element name: {element.CurrentName}")
+        print(f"Current Control Type: {element.CurrentControlType}")
+        print(f"Current Native Window Handle: {element.CurrentNativeWindowHandle}")
+        print(f"Current Is Control Element: {element.CurrentIsControlElement}")
+        print(f"Current Is Controller For: {element.CurrentControllerFor}")
+
+
+    child_sub = list()
+    for subling in iterate_over_elements(raw_view_walker, root_element):
+        # print_ui_element_info(subling)
+        if subling.CurrentName.__str__() == "TA Daily Scrum | Microsoft Teams":
+            # print_ui_element_info(subling)
+            child_sub.append(subling)
+            # print(iui_automation.GetFocusedElement())
+            # for child_subling in iterate_over_elements(raw_view_walker, subling):
+            #     print_ui_element_info(child_subling)
+            # child_sub.append(child_subling)
+    # print(child_sub)
+    # subling_, *_ = [item_pointer for _, control, item_pointer in child_sub if control == 50030]
+    # print(subling_)
+    sub_child_items = list()
+    for _ in range(20):
+        subling = child_sub[0]
+        try:
+            result = raw_view_walker.GetFirstChildElement(child_sub[0])
+            # subling_ = result
+            # print(result.CurrentName)
+            # print(result.CurrentControlType)
+            sub_child_items.append((result.CurrentName, result.CurrentControlType, result))
+            subling_document_control = result
+            # print(40*"=")
+        except (ValueError, _ctypes.COMError):
+            pass
+
+    # =========================== Get ControlType Document 50030 ==================================
+    subling_document_control, *_ = [item_pointer for _, control, item_pointer in sub_child_items if control == 50030]
+    # print(subling_document_control.CurrentName, subling_document_control.CurrentControlType)
+    # print(dir(subling_document_control))
+    # print(subling_document_control.CurrentAutomationId)
+    # print(subling_.CurrentBoundingRectangle.bottom, subling_.CurrentBoundingRectangle.left,
+    #       subling_.CurrentBoundingRectangle.right, subling_.CurrentBoundingRectangle.top)
+    # print(subling_.CurrentLocalizedControlType)
+
+    def _print_bouding_rectangle(pointer_item):
+        print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
+        print(f"Top: {pointer_item.CurrentBoundingRectangle.top}")
+        print(f"Right: {pointer_item.CurrentBoundingRectangle.right}")
+        print(f"Bottom: {pointer_item.CurrentBoundingRectangle.bottom}")
+
+    # ITERATE over elements of ControlType Document
+    # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
+    control_50033 = list()
+    for item in iterate_over_elements(control_view_walker, subling_document_control):
+        # print(item.CurrentControlType, item.CurrentName)
+        if item.CurrentControlType == 50033:
+            control_50033.append(item)
+            # print(item.CurrentControlType)
+            # _print_bouding_rectangle(item)
+        if "Join" in item.CurrentName:
+            pass
+            # print_ui_element_info(item)
+            # _print_bouning_rectangle(item)
+
+
+    # TOOLBAR 50021
+    print("**"*100)
+    result = raw_view_walker.GetFirstChildElement(control_50033[0])
+    # print(result.CurrentControlType)
+
+    # Get Camera ControlType
+    camera = control_view_walker.GetFirstChildElement(result)
+    print(camera.CurrentControlType, camera.CurrentName)
+    _print_bouding_rectangle(camera)
