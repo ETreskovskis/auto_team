@@ -8,7 +8,7 @@ import time
 import warnings
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Generator, Any
 
 import pywintypes
@@ -137,7 +137,8 @@ class OutlookApi:
         if not meet_url:
             warnings.warn("Meeting URL ir missing!")
             self.fail_flag = True
-            return meeting_event.Display()
+            meeting_event.Display()
+            return meet_url
 
     @staticmethod
     def _open_teams_meet_via_url(url: str) -> bool:
@@ -150,7 +151,7 @@ class OutlookApi:
             msg_error, *_ = error.args
             print(msg_error)
 
-    def _meeting_time_and_url_mapper(self, meetings: List) -> List[Tuple[float, str, Any]]:
+    def _meeting_time_and_url_mapper(self, meetings: List) -> List[Tuple[float, str, str, Any]]:
         """Get meeting time and URL. Map them together."""
 
         waiting_process = list()
@@ -160,16 +161,20 @@ class OutlookApi:
                                              meet_start.minute, meet_start.second)
             waiting_time = meeting_time - datetime.datetime.now()
 
-            waiting_process.append((waiting_time.total_seconds(), search_result, meeting_object))
+            waiting_process.append(
+                (waiting_time.total_seconds(), search_result, meeting_object.Subject, meeting_object))
         return waiting_process
 
-    def _wait_for_meeting(self, meeting_data: Tuple[int, str, Any]) -> bool:
+    def _wait_for_meeting(self, meeting_data: Tuple[int, Optional[str], str, Any]) -> bool:
         """Wait for meeting. Join the meeting 3 minutes before start"""
 
-        seconds, url, meet_object = meeting_data
+        seconds, url, subject, meet_object = meeting_data
         text = f"Meeting via Teams which start at: {meet_object.Start} - Subject: {meet_object.Subject} " \
                f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
         print(text)
+        if self.fail_flag or not url:
+            warnings.warn(message=f"URL is missing: {url}. Check displayed OutLook window")
+            return False
         time_to_wait = seconds - 3 * 60
         time.sleep(time_to_wait)
         return self._open_teams_meet_via_url(url)
@@ -182,6 +187,9 @@ class OutlookApi:
         # sort meetings by time
         sorted_meetings = sorted(parsed_meeting_data)
         waiting_process = self._meeting_time_and_url_mapper(sorted_meetings)
+
+        # Todo add more logic of joining the meeting, changing mic and camera HERE?
+        # Todo: split steps
 
         with ThreadPoolExecutor() as executor:
             results = executor.map(self._wait_for_meeting, waiting_process)
@@ -238,28 +246,16 @@ class InvokeEvents:
     https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblestates?view=netframework-4.8
     """
 
-    micro_teams = "Microsoft Teams"
-    cursor_for_outlook_ribbon_teams = (735, 186)
-    cursor_teams_join_button = (1405, 750)
-    # Todo: implement later on how to interact with multiple buttons
-    cursor_microphone_on_off = (1092, 524)
-    cursor_background_filters = (534, 690)
+    # More about Window parameters: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
 
-    # Todo: refactor method. add flags which buttons should be disabled. remove filtering EnumActiveWindows should handle this
-    def retrieve_current_window_handler(self, stored_window: List[DataStorage], pos: Tuple[int, int],
-                                        search_pattern: str):
+    @staticmethod
+    def activate_window(window_handler):
         """Retrieve window handler by search pattern. Set window as foreground window and resize it. Perform button
         click"""
 
-        for window in stored_window:
-            if window.name and search_pattern in window.name:
-                win32gui.ShowWindow(window.handler, win32con.SW_SHOWNOACTIVATE)
-                win32gui.SetForegroundWindow(window.handler)
-                time.sleep(1)
-                win32gui.MoveWindow(window.handler, 365, 100, 1200, 800, win32con.FALSE)
-                time.sleep(1)
-                self.left_button_click(*pos)
-                break
+        win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
+        win32gui.SetForegroundWindow(window_handler)
+        win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
 
     @staticmethod
     def left_button_click(dx: int, dy: int):
@@ -271,138 +267,164 @@ class InvokeEvents:
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         time.sleep(0.5)
 
-    # Todo: refactor method. LAter remove!!!
-    def simulate_auto_join(self, stored_window: List[DataStorage], flag: bool):
-        """Add DOCS"""
 
-        # if Teams meet-join URL was parsed without failure
-        if not flag:
-            self.retrieve_current_window_handler(stored_window, search_pattern=self.teams_window_name,
-                                                 pos=self.cursor_teams_join_button)
-            return
+@dataclass()
+class SearchPattern:
+    subject_unknown = 'New Window | Microsoft Teams'
+    subject_known: list = field(default_factory=list)
 
-        self.retrieve_current_window_handler(stored_window, search_pattern=self.outlook_window_name,
-                                             pos=self.cursor_for_outlook_ribbon_teams)
-        self.retrieve_current_window_handler(stored_window, search_pattern=self.teams_window_name,
-                                             pos=self.cursor_teams_join_button)
+    def add_name(self, subject):
+        if subject:
+            new_name = "".join([subject, " | Microsoft Teams"])
+            self.subject_known.append(new_name)
 
 
 if __name__ == '__main__':
     from pprint import pprint
 
+    # Todo: experiment
+    search_pattern = SearchPattern()
+    search_pattern.add_name("TEST window")
+    print(search_pattern.subject_known)
     # outlook = OutlookApi()
     # outlook.main()
 
     # Todo: How to identify correct Teams active window???
     # Todo: check active teams windows before and after session started = investigate difference by pattern
-    search = InvokeEvents.micro_teams
-    enum = EnumActiveWindows()
-    data = enum.enumerate_windows
-    teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
-    teams_all_windows_handlers = [win.handler for win in data if search in win.name]
-    pprint(teams_all_windows)
-
-    # one is a channel, second is "joined-call"
-    win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
-           ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
-           ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
-
-    import comtypes
-    import comtypes.client
-
-    uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
-    # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
-    _iui_auto = uiauto_core.IUIAutomation
-    # print(dir(_iui_auto))
-    # Reference for UUID https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ff384838(v=vs.85)
-    uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
-
-    # Note:!!
-    # Can not load UIAutomationCore.dll.\nYou may need to install Windows Update KB971513.
-    # \nhttps://github.com/yinkaisheng/WindowsUpdateKB971513ForIUIAutomation'
-
-    iui_automation = comtypes.client.CreateObject(uuid, interface=_iui_auto)
-    control_view_walker = iui_automation.ControlViewWalker
-    raw_view_walker = iui_automation.RawViewWalker
-    root_element = iui_automation.GetRootElement()
-
-
-    def iterate_over_elements(walker, root_element, max_dep=0xFFFFFFFF):
-        child = walker.GetFirstChildElement(root_element)
-        if not child:
-            yield None
-        depth = 0
-        while max_dep >= depth:
-            subling = walker.GetNextSiblingElement(child)
-            if subling:
-                yield subling
-                child = subling
-                depth += 1
-            else:
-                break
-
-
-    def print_ui_element_info(element):
-        print(40 * "=")
-        print(f"Element name: {element.CurrentName}")
-        print(f"Current Control Type: {element.CurrentControlType}")
-        print(f"Current Native Window Handle: {element.CurrentNativeWindowHandle}")
-        print(f"Current Is Control Element: {element.CurrentIsControlElement}")
-        print(f"Current Is Controller For: {element.CurrentControllerFor}")
-
-
-    import re
-
-    # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
-    #  otherwise "Camera" ControlType would not be found!!!
-    child_sub = list()
-    for subling in iterate_over_elements(raw_view_walker, root_element):
-        match = re.search(pattern="Microsoft Teams", string=subling.CurrentName.__str__())
-        if match and subling.CurrentNativeWindowHandle in teams_all_windows_handlers:
-            child_sub.append(subling)
-
-    print(child_sub)
-
-    # =========================== Get ControlType Document 50030 ==================================
-    get_document_control, *_ = [element for element in
-                                map(raw_view_walker.GetFirstChildElement, child_sub) if
-                                element.CurrentControlType == 50030]
-    print(get_document_control)
-
-    # Todo: DOUBLE check if window is has active flag if not make it visible/display
-    #  otherwise "Camera" ControlType would not be found!!!
-
-    def _print_bouding_rectangle(pointer_item):
-        print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
-        print(f"Top: {pointer_item.CurrentBoundingRectangle.top}")
-        print(f"Right: {pointer_item.CurrentBoundingRectangle.right}")
-        print(f"Bottom: {pointer_item.CurrentBoundingRectangle.bottom}")
-
-
-    # ITERATE over elements of ControlType Document
-    # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
-    control_50033 = list()
-    join_button = list()
-    for item in iterate_over_elements(control_view_walker, get_document_control):
-        if item.CurrentControlType == 50033:
-            control_50033.append(item)
-        if "Join" in item.CurrentName:
-            join_button.append(item)
-
+    # enum = EnumActiveWindows()
+    # data = enum.enumerate_windows
+    # teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
+    # teams_all_windows_handlers = [win.handler for win in data if search in win.name]
+    # # teams_all_windows_handlers = [(win.handler, win) for win in data if search in win.name]
+    # pprint(teams_all_windows)
+    #
+    # # one is a channel, second is "joined-call"
+    # win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
+    #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
+    #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
+    #
+    # wins = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 788316),
+    #         ('New Window | Microsoft Teams', 'Chrome_WidgetWin_1', 11143342),
+    #         ('Bertasius Ugnius | Microsoft Teams', 'Chrome_WidgetWin_1', 263748)]
+    #
+    # search_when_subject_unknown = "New Window | Microsoft Teams"
+    # search_when_subject_known = "TA Daily Scrum | Microsoft Teams"
+    #
+    # import comtypes
+    # import comtypes.client
+    #
+    # uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
+    # # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
+    # _iui_auto = uiauto_core.IUIAutomation
+    # # print(dir(_iui_auto))
+    # # Reference for UUID https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ff384838(v=vs.85)
+    # uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
+    #
+    # # Note:!!
+    # # Can not load UIAutomationCore.dll.\nYou may need to install Windows Update KB971513.
+    # # \nhttps://github.com/yinkaisheng/WindowsUpdateKB971513ForIUIAutomation'
+    #
+    # iui_automation = comtypes.client.CreateObject(uuid, interface=_iui_auto)
+    # control_view_walker = iui_automation.ControlViewWalker
+    # raw_view_walker = iui_automation.RawViewWalker
+    # root_element = iui_automation.GetRootElement()
+    #
+    #
+    # def iterate_over_elements(walker, root_element, max_dep=0xFFFFFFFF):
+    #     child = walker.GetFirstChildElement(root_element)
+    #     if not child:
+    #         yield None
+    #     depth = 0
+    #     while max_dep >= depth:
+    #         subling = walker.GetNextSiblingElement(child)
+    #         if subling:
+    #             yield subling
+    #             child = subling
+    #             depth += 1
+    #         else:
+    #             break
+    #
+    #
+    # def print_ui_element_info(element):
+    #     print(40 * "=")
+    #     print(f"Element name: {element.CurrentName}")
+    #     print(f"Current Control Type: {element.CurrentControlType}")
+    #     print(f"Current Native Window Handle: {element.CurrentNativeWindowHandle}")
+    #     print(f"Current Is Control Element: {element.CurrentIsControlElement}")
+    #     print(f"Current Is Controller For: {element.CurrentControllerFor}")
+    #
+    #
+    # def _print_bouding_rectangle(pointer_item):
+    #     print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
+    #     print(f"Top: {pointer_item.CurrentBoundingRectangle.top}")
+    #     print(f"Right: {pointer_item.CurrentBoundingRectangle.right}")
+    #     print(f"Bottom: {pointer_item.CurrentBoundingRectangle.bottom}")
+    #
+    #
+    # import re
+    #
+    # # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
+    # #  otherwise "Camera" ControlType would not be found!!!
+    # child_sub = list()
+    # for subling in iterate_over_elements(raw_view_walker, root_element):
+    #     match = re.search(pattern="Microsoft Teams", string=subling.CurrentName.__str__())
+    #     if match and subling.CurrentNativeWindowHandle in teams_all_windows_handlers:
+    #         child_sub.append(subling)
+    #         # print(subling.CurrentNativeWindowHandle)
+    #
+    # # for subling in iterate_over_elements(raw_view_walker, child_sub[0]):
+    # #     print(subling.CurrentNativeWindowHandle)
+    # #     print(subling.CurrentControlType)
+    # #     print("=" * 60)
+    # #
+    # # for subling in iterate_over_elements(raw_view_walker, child_sub[1]):
+    # #     print(subling.CurrentNativeWindowHandle)
+    # #     print(subling.CurrentControlType)
+    # #     print("=" * 60)
+    #
+    # for subling in child_sub: InvokeEvents.activate_window(subling.CurrentNativeWindowHandle)
+    # time.sleep(1)
+    #
+    # # =========================== Get ControlType Document 50030 ==================================
+    # get_document_control = [element for element in
+    #                         map(raw_view_walker.GetFirstChildElement, child_sub) if
+    #                         element.CurrentControlType == 50030]
+    # print(get_document_control)
+    # # print(get_document_control[0].CurrentNativeWindowHandle)
+    # # print(get_document_control[1].CurrentNativeWindowHandle)
+    #
+    # # test_this = [child for child in child_sub if
+    # #              raw_view_walker.GetFirstChildElement(child).CurrentControlType == 50030]
+    # # print(test_this[0].CurrentNativeWindowHandle)
+    # # print(test_this[1].CurrentNativeWindowHandle)
+    #
+    # # Todo: DOUBLE check if window is has active flag if not make it visible/display
+    # #  otherwise "Camera" ControlType would not be found!!!
+    #
+    # # # ITERATE over elements of ControlType Document
+    # # # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
+    # control_50033 = list()
+    # join_button = list()
+    # for item in iterate_over_elements(control_view_walker, get_document_control[0]):
+    #     if item.CurrentControlType == 50033:
+    #         control_50033.append(item)
+    #     if "Join" in item.CurrentName:
+    #         join_button.append(item)
+    #
     # print(control_50033)
     # print(join_button)
-
-    # # GET TOOLBAR 50021 then get camera access
-    # print("**" * 100)
-    get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
-                   if element.CurrentControlType == 50021]
-
-    # # Get Camera ControlType
-    get_camera, *_ = [camera for camera in map(control_view_walker.GetFirstChildElement, get_toolbar) if
-                      camera.CurrentControlType == 50002]
-    print(get_camera.CurrentControlType, get_camera.CurrentName)
-    _print_bouding_rectangle(get_camera)
-
-    x = (get_camera.CurrentBoundingRectangle.right + get_camera.CurrentBoundingRectangle.left) // 2
-    y = (get_camera.CurrentBoundingRectangle.bottom + get_camera.CurrentBoundingRectangle.top) // 2
-    InvokeEvents.left_button_click(x, y)
+    # #
+    # # # # GET TOOLBAR 50021 then get camera access
+    # # # print("**" * 100)
+    # # get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
+    # #                if element.CurrentControlType == 50021]
+    # #
+    # # # # Get Camera ControlType
+    # # get_camera, *_ = [camera for camera in map(control_view_walker.GetFirstChildElement, get_toolbar) if
+    # #                   camera.CurrentControlType == 50002]
+    # # print(get_camera.CurrentControlType, get_camera.CurrentName)
+    # # _print_bouding_rectangle(get_camera)
+    # #
+    # # x = (get_camera.CurrentBoundingRectangle.right + get_camera.CurrentBoundingRectangle.left) // 2
+    # # y = (get_camera.CurrentBoundingRectangle.bottom + get_camera.CurrentBoundingRectangle.top) // 2
+    # # InvokeEvents.left_button_click(x, y)
