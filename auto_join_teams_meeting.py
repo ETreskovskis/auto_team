@@ -55,6 +55,17 @@ class SearchPattern:
 
 
 class OutlookApi:
+    """Main class for Outlook API.
+
+    More information about meetings:
+    https://docs.microsoft.com/en-us/office/vba/api/outlook.itemproperties
+    https://office365itpros.com/2019/10/29/outlook-properties-mark-online-meetings/
+    https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-ascal/aa63e887-2e0c-487f-a1a9-d4466708a31b
+
+    MeetingItem info:
+    https://docs.microsoft.com/en-us/office/vba/api/outlook.items.restrict
+    https://docs.microsoft.com/en-us/office/vba/api/outlook.meetingitem
+    """
 
     def __init__(self):
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
@@ -62,7 +73,8 @@ class OutlookApi:
         self.fail_flag = False
 
     def _enumerate_outlook_folders(self) -> DataStorage:
-        """ADD DOCS"""
+        """Enumerate Outlook folders"""
+
         folders = DataStorage()
 
         for num in range(50):
@@ -77,11 +89,7 @@ class OutlookApi:
 
     @staticmethod
     def _get_event_item_properties(event) -> List[str]:
-        """Introspect each scheduled event properties and retrieve everything
-        https://docs.microsoft.com/en-us/office/vba/api/outlook.itemproperties
-        https://office365itpros.com/2019/10/29/outlook-properties-mark-online-meetings/
-        https://docs.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-ascal/aa63e887-2e0c-487f-a1a9-d4466708a31b
-        """
+        """Introspect each scheduled event properties and retrieve everything."""
 
         properties = event.ItemProperties
         event_data = list()
@@ -93,7 +101,6 @@ class OutlookApi:
             pass
         return event_data
 
-    # Todo: idea is to sort meetings by provided date. At the moment it retrieves 'todays' meetings
     def _sort_calendar_meeting_object(self) -> List:
         """Sort today`s existing meetings from Outlook Calendar"""
 
@@ -108,8 +115,6 @@ class OutlookApi:
         end_day = tomorrow_date.date().strftime("%m/%d/%Y")
 
         # return Items collection of MeetingItem
-        # https://docs.microsoft.com/en-us/office/vba/api/outlook.items.restrict
-        # https://docs.microsoft.com/en-us/office/vba/api/outlook.meetingitem
         meeting_plan = calendar.Restrict("[Start] >= '" + begin_day + "' AND [END] <= '" + end_day + "'")
 
         return meeting_plan
