@@ -226,7 +226,6 @@ class OutlookApi:
         valid_meetings = self.drop_outdated_meetings(waiting_process)
         # return valid_meetings
 
-        # Todo: check if meeting time is not negative!!!
         # Todo add more logic of joining the meeting, changing mic and camera HERE?
         # Todo: split steps
         return waiting_process
@@ -238,6 +237,11 @@ class OutlookApi:
 
 
 class EnumActiveWindows:
+    """Enumerate windows. Activate windows.
+
+    More about Window parameters and constants:
+    https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    """
 
     def __init__(self):
         self.enum_windows = list()
@@ -263,6 +267,19 @@ class EnumActiveWindows:
 
         win32gui.EnumWindows(self._get_window_info, self.enum_windows)
         return self.enum_windows
+
+    def validate_teams_open_window(self):
+        """ADD DOCS"""
+        pass
+
+    @staticmethod
+    def activate_window(window_handler):
+        """Retrieve window handler by search pattern. Set window as foreground window and resize it. Perform button
+        click"""
+
+        win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
+        win32gui.SetForegroundWindow(window_handler)
+        win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
 
 
 class IUIAutomation:
@@ -338,21 +355,8 @@ class IUIAutomation:
         print(f"Current Is Controller For: {element.CurrentControllerFor}")
 
 
-class InvokeEvents:
-    """Class to do some basic stuff. Activate window and left mouse click
-
-    More about Window parameters and constants:
-    https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
-    """
-
-    @staticmethod
-    def activate_window(window_handler):
-        """Retrieve window handler by search pattern. Set window as foreground window and resize it. Perform button
-        click"""
-
-        win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
-        win32gui.SetForegroundWindow(window_handler)
-        win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
+class MouseEvents:
+    """Invoke mouse events"""
 
     @staticmethod
     def left_button_click(dx: int, dy: int):
@@ -365,15 +369,11 @@ class InvokeEvents:
         time.sleep(0.5)
 
 
-
-
-
 if __name__ == '__main__':
     from pprint import pprint
 
     # Todo: add flags: microphone ON/OFF camera ON/OFF. To determine current state of mic and camera, Parse "join" button
 
-    # Todo: How to identify correct Teams active window???
     # Todo: check active teams windows before and after session started = investigate difference by pattern
     mock_search = "| Microsoft Teams"
 
@@ -382,10 +382,10 @@ if __name__ == '__main__':
     print(get_data)
     # List[Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]]
     print("="*50)
-    # Todo: check if meeting time is not negative!!!
     for time, url, pattern, data_obj in get_data:
         mock_search = pattern.subject_known
 
+    # Todo: this code is executed after Teams window is displayed!!!
     enum = EnumActiveWindows()
     data = enum.enumerate_windows
     teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
