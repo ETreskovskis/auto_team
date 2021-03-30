@@ -151,7 +151,7 @@ class OutlookApi:
             msg_error, *_ = error.args
             print(msg_error)
 
-    def _meeting_time_and_url_mapper(self, meetings: List) -> List[Tuple[float, str, str, Any]]:
+    def _meeting_time_and_url_mapper(self, meetings: List) -> List[Tuple[float, str, Any]]:
         """Get meeting time and URL. Map them together."""
 
         waiting_process = list()
@@ -162,19 +162,21 @@ class OutlookApi:
             waiting_time = meeting_time - datetime.datetime.now()
 
             waiting_process.append(
-                (waiting_time.total_seconds(), search_result, meeting_object.Subject, meeting_object))
+                (waiting_time.total_seconds(), search_result, meeting_object))
         return waiting_process
 
-    def _wait_for_meeting(self, meeting_data: Tuple[int, Optional[str], str, Any]) -> bool:
+    def _wait_for_meeting(self, meeting_data: Tuple[int, str, Any]) -> bool:
         """Wait for meeting. Join the meeting 3 minutes before start"""
 
-        seconds, url, subject, meet_object = meeting_data
+        seconds, url, meet_object = meeting_data
+        if self.fail_flag or not url:
+            warnings.warn(
+                message=f"Meeting {meet_object.Subject} URL is missing: {url}. Check displayed OutLook window")
+            return False
+
         text = f"Meeting via Teams which start at: {meet_object.Start} - Subject: {meet_object.Subject} " \
                f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
         print(text)
-        if self.fail_flag or not url:
-            warnings.warn(message=f"URL is missing: {url}. Check displayed OutLook window")
-            return False
         time_to_wait = seconds - 3 * 60
         time.sleep(time_to_wait)
         return self._open_teams_meet_via_url(url)
