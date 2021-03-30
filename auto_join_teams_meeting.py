@@ -10,7 +10,7 @@ import time
 import warnings
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, List, Tuple, Generator, Any
 
 import pywintypes
@@ -280,6 +280,33 @@ class IUIAutomation:
         self.raw_view_walker = self.iui_automation.RawViewWalker
         self.root_element = self.iui_automation.GetRootElement()
 
+    @staticmethod
+    def iterate_over_elements(walker, element, max_iteration=0xFFFFFFFF) -> Generator[Any, None, None]:
+        """Iterate over IUIAutomation element with raw_view_walker or control_view_walker"""
+
+        child = walker.GetFirstChildElement(element)
+        if not child:
+            yield None
+        depth = 0
+        while max_iteration >= depth:
+            sibling = walker.GetNextSiblingElement(child)
+            if sibling:
+                yield sibling
+                child = sibling
+                depth += 1
+            else:
+                break
+
+    @staticmethod
+    def get_bounding_rectangle(element: Any) -> Tuple[int, int, int, int]:
+        """Get bounding rectangle of element"""
+
+        top = element.CurrentBoundingRectangle.top
+        bottom = element.CurrentBoundingRectangle.bottom
+        left = element.CurrentBoundingRectangle.left
+        right = element.CurrentBoundingRectangle.right
+        return top, bottom, left, right
+
 
 class InvokeEvents:
     """Class to do some basic stuff. Activate window and left mouse click"""
@@ -384,7 +411,6 @@ if __name__ == '__main__':
         print(f"Bottom: {pointer_item.CurrentBoundingRectangle.bottom}")
 
 
-    import re
 
     # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
     #  otherwise "Camera" ControlType would not be found!!!
