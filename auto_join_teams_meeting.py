@@ -347,6 +347,8 @@ class IUIAutomation:
 
     @staticmethod
     def debug_ui_element(element):
+        """For debugging purposes"""
+
         print(40 * "=")
         print(f"Element name: {element.CurrentName}")
         print(f"Current Control Type: {element.CurrentControlType}")
