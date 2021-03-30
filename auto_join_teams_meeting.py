@@ -273,8 +273,8 @@ class EnumActiveWindows:
         win32gui.EnumWindows(self._get_window_info, self.enum_windows)
         return self.enum_windows
 
-    def validate_teams_open_window(self):
-        """ADD DOCS"""
+    def validate_teams_open_window(self, ):
+        """Find open Teams window. Search is based on meeting.Subject name"""
         pass
 
     @staticmethod
@@ -393,6 +393,9 @@ if __name__ == '__main__':
         mock_search = pattern.subject_known
 
     # Todo: this code is executed after Teams window is displayed!!!
+    # Todo: create CLASS wrapper which takes the input and gives output via ThreadPoolExecutor
+
+
     enum = EnumActiveWindows()
     data = enum.enumerate_windows
     teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
