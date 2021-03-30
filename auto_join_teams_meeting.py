@@ -39,8 +39,14 @@ class DataStorage:
 
 @dataclass()
 class SearchPattern:
+    """Holds various search patterns for finding window name, button names etc."""
+
+    microphone = re.compile(pattern="(?P<mic>[a-zA-Z]ic\s[a-zA-Z]{2,3})")
+    camera = re.compile(pattern="(?P<camera>[a-zA-Z]amera\s[a-zA-Z]{2,3})")
+
     subject_unknown = 'New Window | Microsoft Teams'
     subject_known: str = None
+    microsoft_teams = re.compile(pattern="Microsoft Teams")
 
     def add_name(self, subject: str):
         if subject:
@@ -196,6 +202,16 @@ class OutlookApi:
         time.sleep(time_to_wait)
         return self._open_teams_meet_via_url(url)
 
+    @staticmethod
+    def drop_outdated_meetings(meetings: List[Tuple[float, str, SearchPattern, Any]]):
+        """Drop outdated meetings when time is negative"""
+
+        for _enum, meeting in enumerate(meetings):
+            _time, *_ = meeting
+            if _time < 0:
+                meetings.pop(_enum)
+        return meetings
+
     def main(self):
         """Main method of Outlook calendar logic."""
 
@@ -206,14 +222,19 @@ class OutlookApi:
         waiting_process = self._meeting_time_and_url_mapper(sorted_meetings)
         # Output:  List[Tuple[float, str, SearchPattern, Any]]
 
+        # Remove and drop outdated meetings
+        valid_meetings = self.drop_outdated_meetings(waiting_process)
+        # return valid_meetings
+
+        # Todo: check if meeting time is not negative!!!
         # Todo add more logic of joining the meeting, changing mic and camera HERE?
         # Todo: split steps
-
-        with ThreadPoolExecutor() as executor:
-            results = executor.map(self._wait_for_meeting, waiting_process)
-
-            for meet_result in results:
-                print(f"Meeting starts in 3min. Window is open: {meet_result}")
+        return waiting_process
+        # with ThreadPoolExecutor() as executor:
+        #     results = executor.map(self._wait_for_meeting, waiting_process)
+        #
+        #     for meet_result in results:
+        #         print(f"Meeting starts in 3min. Window is open: {meet_result}")
 
 
 class EnumActiveWindows:
@@ -354,13 +375,24 @@ if __name__ == '__main__':
 
     # Todo: How to identify correct Teams active window???
     # Todo: check active teams windows before and after session started = investigate difference by pattern
+    mock_search = "| Microsoft Teams"
+
+    outlook = OutlookApi()
+    get_data = outlook.main()
+    print(get_data)
+    # List[Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]]
+    print("="*50)
+    # Todo: check if meeting time is not negative!!!
+    for time, url, pattern, data_obj in get_data:
+        mock_search = pattern.subject_known
+
     enum = EnumActiveWindows()
     data = enum.enumerate_windows
-    teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if search in win.name]
-    teams_all_windows_handlers = [win.handler for win in data if search in win.name]
-    # teams_all_windows_handlers = [(win.handler, win) for win in data if search in win.name]
+    teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
+    teams_all_windows_handlers = [win.handler for win in data if mock_search in win.name]
     pprint(teams_all_windows)
-    #
+    pprint(teams_all_windows_handlers)
+    print("=" * 50)
     # # one is a channel, second is "joined-call"
     # win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
     #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
@@ -421,10 +453,12 @@ if __name__ == '__main__':
     # Todo: FIND window then do this logic below!!!!!
     child_sub = list()
     for subling in iterate_over_elements(raw_view_walker, root_element):
-        match = re.search(pattern="Microsoft Teams", string=subling.CurrentName.__str__())
+        match = re.search(pattern=SearchPattern.microsoft_teams, string=subling.CurrentName.__str__())
         if match and subling.CurrentNativeWindowHandle in teams_all_windows_handlers:
             child_sub.append(subling)
             # print(subling.CurrentNativeWindowHandle)
+
+    # print(child_sub)
 
     # for subling in iterate_over_elements(raw_view_walker, child_sub[0]):
     #     print(subling.CurrentNativeWindowHandle)
@@ -436,37 +470,38 @@ if __name__ == '__main__':
     #     print(subling.CurrentControlType)
     #     print("=" * 60)
 
-    for subling in child_sub: InvokeEvents.activate_window(subling.CurrentNativeWindowHandle)
-    time.sleep(1)
-
+    # for subling in child_sub: InvokeEvents.activate_window(subling.CurrentNativeWindowHandle)
+    # time.sleep(1)
+    #
     # =========================== Get ControlType Document 50030 ==================================
     get_document_control = [element for element in
                             map(raw_view_walker.GetFirstChildElement, child_sub) if
                             element.CurrentControlType == 50030]
-    print(get_document_control)
+    # print(get_document_control)
     # print(get_document_control[0].CurrentNativeWindowHandle)
     # print(get_document_control[1].CurrentNativeWindowHandle)
-
-    # test_this = [child for child in child_sub if
-    #              raw_view_walker.GetFirstChildElement(child).CurrentControlType == 50030]
-    # print(test_this[0].CurrentNativeWindowHandle)
-    # print(test_this[1].CurrentNativeWindowHandle)
-
-    # Todo: DOUBLE check if window is has active flag if not make it visible/display
-    #  otherwise "Camera" ControlType would not be found!!!
-
-    # # ITERATE over elements of ControlType Document
-    # # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
+    #
+    # # test_this = [child for child in child_sub if
+    # #              raw_view_walker.GetFirstChildElement(child).CurrentControlType == 50030]
+    # # print(test_this[0].CurrentNativeWindowHandle)
+    # # print(test_this[1].CurrentNativeWindowHandle)
+    #
+    # # Todo: DOUBLE check if window is has active flag if not make it visible/display
+    # #  otherwise "Camera" ControlType would not be found!!!
+    #
+    # # # ITERATE over elements of ControlType Document
+    # # # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
     control_50033 = list()
-    join_button = list()
+    join_button = None
     for item in iterate_over_elements(control_view_walker, get_document_control[0]):
         if item.CurrentControlType == 50033:
             control_50033.append(item)
-        if "Join" in item.CurrentName:
-            join_button.append(item)
+        if "Join With" in item.CurrentName:
+            join_button = item
 
     print(control_50033)
-    print(join_button)
+    print(join_button, join_button.CurrentName)
+
     #
     # # # GET TOOLBAR 50021 then get camera access
     # # print("**" * 100)
