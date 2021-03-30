@@ -307,11 +307,22 @@ class IUIAutomation:
         right = element.CurrentBoundingRectangle.right
         return top, bottom, left, right
 
+    @staticmethod
+    def debug_ui_element(element):
+        print(40 * "=")
+        print(f"Element name: {element.CurrentName}")
+        print(f"Current Control Type: {element.CurrentControlType}")
+        print(f"Current Native Window Handle: {element.CurrentNativeWindowHandle}")
+        print(f"Current Is Control Element: {element.CurrentIsControlElement}")
+        print(f"Current Is Controller For: {element.CurrentControllerFor}")
+
 
 class InvokeEvents:
-    """Class to do some basic stuff. Activate window and left mouse click"""
+    """Class to do some basic stuff. Activate window and left mouse click
 
-    # More about Window parameters: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    More about Window parameters and constants:
+    https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    """
 
     @staticmethod
     def activate_window(window_handler):
@@ -404,16 +415,10 @@ if __name__ == '__main__':
         print(f"Current Is Controller For: {element.CurrentControllerFor}")
 
 
-    def _print_bouding_rectangle(pointer_item):
-        print(f"Left: {pointer_item.CurrentBoundingRectangle.left}")
-        print(f"Top: {pointer_item.CurrentBoundingRectangle.top}")
-        print(f"Right: {pointer_item.CurrentBoundingRectangle.right}")
-        print(f"Bottom: {pointer_item.CurrentBoundingRectangle.bottom}")
-
-
-
     # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
     #  otherwise "Camera" ControlType would not be found!!!
+
+    # Todo: FIND window then do this logic below!!!!!
     child_sub = list()
     for subling in iterate_over_elements(raw_view_walker, root_element):
         match = re.search(pattern="Microsoft Teams", string=subling.CurrentName.__str__())
