@@ -68,10 +68,11 @@ class OutlookApi:
     https://docs.microsoft.com/en-us/office/vba/api/outlook.meetingitem
     """
 
-    def __init__(self):
+    def __init__(self, time_before: int = 3 * 60):
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         self.folders = self._enumerate_outlook_folders()
         self.fail_flag = False
+        self.start_before = time_before
 
     def _enumerate_outlook_folders(self) -> DataStorage:
         """Enumerate Outlook folders"""
@@ -204,7 +205,7 @@ class OutlookApi:
         text = f"Meeting via Teams which start at: {meet_object.Start} - Subject: {meet_object.Subject} " \
                f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
         print(text)
-        time_to_wait = seconds - 3 * 60
+        time_to_wait = seconds - self.start_before
         time.sleep(time_to_wait)
         return self._open_teams_meet_via_url(url)
 
@@ -218,6 +219,12 @@ class OutlookApi:
                 meetings.pop(_enum)
         return meetings
 
+    def validate_meetings(self, meetings: List):
+        """Validate if there is valid meeting list"""
+
+        if not meetings:
+            self.fail_flag = True
+
     def main(self):
         """Main method of Outlook calendar logic."""
 
@@ -229,11 +236,20 @@ class OutlookApi:
         # Output:  List[Tuple[float, str, SearchPattern, Any]]
 
         # Remove and drop outdated meetings
-        valid_meetings = self.drop_outdated_meetings(waiting_process)
-        # return valid_meetings
+        # valid_meetings = self.drop_outdated_meetings(waiting_process)
+        # return not validate_meetings(valid_meetings)
 
-        # Todo add more logic of joining the meeting, changing mic and camera HERE?
-        # Todo: split steps
+        wait_for_meeting = self._wait_for_meeting
+        # if wait_for_meeting:
+        #     # Todo: initialize IUIAutomation with parser settings (mic on/off, camera on/off)
+        #     # Todo: initialize EnumActiveWindows and enumerate_windows
+        #     #     Todo: find window by search pattern meeting.Subject
+        #     #     Todo: active window with EnumActiveWindows.activate_window
+        #     #     Todo: find window and his sublings
+        #     # Todo: Get Document control type
+        #     # Todo: Get Pane
+        #     pass
+
         return waiting_process
         # with ThreadPoolExecutor() as executor:
         #     results = executor.map(self._wait_for_meeting, waiting_process)
@@ -315,6 +331,7 @@ class IUIAutomation:
     https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblestates?view=netframework-4.8
 
     """
+
     # Todo: get preferred camera and mic states from parser
     def __init__(self, camera: str = None, mic: str = None):
         self.__iui_auto_core = comtypes.client.GetModule("UIAutomationCore.dll").IUIAutomation
@@ -387,6 +404,15 @@ class IUIAutomation:
         *_, self.mic_state = result.group("mic").split(" ")
         return self.mic_state
 
+    @staticmethod
+    def region_siblings_from_document_control(element: Any):
+        """Retrieve two region ControlType: 50033"""
+        pass
+
+    @staticmethod
+    def childs_from_root_element(walker, root_element):
+        """ADD DOCS"""
+        pass
 
 class MouseEvents:
     """Invoke mouse events"""
@@ -414,14 +440,15 @@ if __name__ == '__main__':
     get_data = outlook.main()
     print(get_data)
     # List[Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]]
-    print("="*50)
+    print(OutlookApi.__name__ + "=" * 50)
     for time, url, pattern, data_obj in get_data:
         mock_search = pattern.subject_known
+        print(mock_search)
+    print("=" * 50)
 
     # Todo: this code is executed after Teams window is displayed!!!
     # Todo: create CLASS wrapper which takes the input and gives output via ThreadPoolExecutor
     # Todo: if _wait_for_meeting is True continue logic below otherwise stop.
-
 
     enum = EnumActiveWindows()
     data = enum.enumerate_windows
@@ -430,7 +457,6 @@ if __name__ == '__main__':
     pprint(teams_all_windows)
     pprint(teams_all_windows_handlers)
     print("=" * 50)
-    # # one is a channel, second is "joined-call"
     # win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
     #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
     #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
@@ -442,7 +468,6 @@ if __name__ == '__main__':
     # search_when_subject_unknown = "New Window | Microsoft Teams"
     # search_when_subject_known = "TA Daily Scrum | Microsoft Teams"
     #
-
 
     uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
     # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
@@ -475,7 +500,18 @@ if __name__ == '__main__':
                 break
 
 
-    def print_ui_element_info(element):
+    def get_bounding_rectangle(element: Any) -> Tuple[int, int, int, int]:
+        """Get bounding rectangle of element"""
+
+        top = element.CurrentBoundingRectangle.top
+        bottom = element.CurrentBoundingRectangle.bottom
+        left = element.CurrentBoundingRectangle.left
+        right = element.CurrentBoundingRectangle.right
+        return top, bottom, left, right
+
+    def debug_ui_element(element):
+        """For debugging purposes"""
+
         print(40 * "=")
         print(f"Element name: {element.CurrentName}")
         print(f"Current Control Type: {element.CurrentControlType}")
@@ -495,7 +531,8 @@ if __name__ == '__main__':
             child_sub.append(subling)
             # print(subling.CurrentNativeWindowHandle)
 
-    # print(child_sub)
+    print("CHILD SIBLING")
+    print(child_sub)
 
     # for subling in iterate_over_elements(raw_view_walker, child_sub[0]):
     #     print(subling.CurrentNativeWindowHandle)
@@ -511,10 +548,13 @@ if __name__ == '__main__':
     # time.sleep(1)
     #
     # =========================== Get ControlType Document 50030 ==================================
-    get_document_control = [element for element in
+    get_document_control, *_ = [element for element in
                             map(raw_view_walker.GetFirstChildElement, child_sub) if
                             element.CurrentControlType == 50030]
-    # print(get_document_control)
+    print("Document ControlType " + 40 * "=")
+    print(get_document_control)
+    print(40 * "=")
+
     # print(get_document_control[0].CurrentNativeWindowHandle)
     # print(get_document_control[1].CurrentNativeWindowHandle)
     #
@@ -522,29 +562,40 @@ if __name__ == '__main__':
     # #              raw_view_walker.GetFirstChildElement(child).CurrentControlType == 50030]
     # # print(test_this[0].CurrentNativeWindowHandle)
     # # print(test_this[1].CurrentNativeWindowHandle)
-    #
-    # # Todo: DOUBLE check if window is has active flag if not make it visible/display
-    # #  otherwise "Camera" ControlType would not be found!!!
-    #
+
     # # # ITERATE over elements of ControlType Document
     # # # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
     control_50033 = list()
     join_button = None
-    for item in iterate_over_elements(control_view_walker, get_document_control[0]):
+    for item in iterate_over_elements(control_view_walker, get_document_control):
         if item.CurrentControlType == 50033:
             control_50033.append(item)
         if SearchPattern.join_button_patt in item.CurrentName:
             join_button = item
 
     print(control_50033)
-    print(join_button, join_button.CurrentName)
+    # print(join_button, join_button.CurrentName)
 
-    #
+    # for region in control_50033:
+    #     debug_ui_element(region)
+    #     print(get_bounding_rectangle(region))
+    #     print(40 * "=")
+
+    # WILL NOT work or works and retrieves only 1 subling!!! need to use iterate_over_elements with control_view_walker
+    # get_check_box = [element.CurrentName for element in map(control_view_walker.GetFirstChildElement, [control_50033[1]])]
+    # print(get_check_box)
+
+    # mic = list()
+    # join_button = None
+    # for item in iterate_over_elements(control_view_walker, control_50033[1]):
+    #     print(item.CurrentName, item.CurrentControlType, get_bounding_rectangle(item))
+
     # # # GET TOOLBAR 50021 then get camera access
-    # # print("**" * 100)
+    # print("**" * 100)
     # get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
     #                if element.CurrentControlType == 50021]
-    #
+    # print(get_toolbar[0].CurrentName) # SHOULD BE: CurrentName -> 'Video options'
+
     # # # Get Camera ControlType
     # get_camera, *_ = [camera for camera in map(control_view_walker.GetFirstChildElement, get_toolbar) if
     #                   camera.CurrentControlType == 50002]
