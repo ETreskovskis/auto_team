@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import _ctypes
-import ctypes
 import argparse
 from functools import partial
 
@@ -393,7 +391,6 @@ class IUIAutomation:
 
     """
 
-    # Todo: get preferred camera and mic states from parser
     def __init__(self, camera: str = None, mic: str = None):
         self.__iui_auto_core = comtypes.client.GetModule("UIAutomationCore.dll").IUIAutomation
         self.__uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
@@ -576,109 +573,13 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
 
     outlook = OutlookApi(time_before=arguments.start_before)
+    iui_auto_class = IUIAutomation(camera=arguments.camera_state, mic=arguments.mic_state)
+    enum_class = EnumActiveWindows()
+
+    outlook.start_meetings(enum=enum_class, iui_auto=iui_auto_class)
 
 
 
-
-    # Todo: create parser for flags
-    # Initialize IuiAuto, EnumClass, Outlook
-    # Todo: parse flags for those class
-
-    # from pprint import pprint
-    #
-    # # Todo: add flags: microphone ON/OFF camera ON/OFF. To determine current state of mic and camera, Parse "join" button
-    #
-    # mock_search = "| Microsoft Teams"
-    #
-    # outlook = OutlookApi()
-    # get_data = outlook.main()
-    # print(get_data)
-    # # List[Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]]
-    # print(OutlookApi.__name__ + "=" * 50)
-    # for time, url, pattern, data_obj in get_data:
-    #     mock_search = pattern.subject_name
-    #     print(mock_search)
-    # print("=" * 50)
-    #
-    # # Todo: this code is executed after Teams window is displayed!!!
-    # # Todo: create CLASS wrapper which takes the input and gives output via ThreadPoolExecutor
-    # # Todo: if _wait_for_meeting is True continue logic below otherwise stop.
-    #
-    # _enum = EnumActiveWindows()
-    # data = _enum.enumerate_windows
-    # # teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
-    # teams_all_windows_handlers = [win.handler for win in data if mock_search in win.name]
-    # # pprint(teams_all_windows)
-    # pprint(teams_all_windows_handlers)
-    # print("=" * 50)
-    # # win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
-    # #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 1248714),
-    # #        ('TA Daily Scrum | Microsoft Teams', 'Chrome_WidgetWin_1', 199116)]
-    # #
-    # # wins = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 788316),
-    # #         ('New Window | Microsoft Teams', 'Chrome_WidgetWin_1', 11143342),
-    # #         ('Bertasius Ugnius | Microsoft Teams', 'Chrome_WidgetWin_1', 263748)]
-    # #
-    # # search_when_subject_unknown = "New Window | Microsoft Teams"
-    # # search_when_subject_known = "TA Daily Scrum | Microsoft Teams"
-    # #
-    #
-    # uiauto_core = comtypes.client.GetModule("UIAutomationCore.dll")
-    # # https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-uiautomationoverview
-    # _iui_auto = uiauto_core.IUIAutomation
-    # # Reference for UUID https://docs.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ff384838(v=vs.85)
-    # uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
-    #
-    # # Note:!!
-    # # Can not load UIAutomationCore.dll.\nYou may need to install Windows Update KB971513.
-    # # \nhttps://github.com/yinkaisheng/WindowsUpdateKB971513ForIUIAutomation'
-    #
-    # iui_automation = comtypes.client.CreateObject(uuid, interface=_iui_auto)
-    # control_view_walker = iui_automation.ControlViewWalker
-    # raw_view_walker = iui_automation.RawViewWalker
-    # root_element = iui_automation.GetRootElement()
-    #
-    #
-    # def iterate_over_elements(walker, root_element, max_dep=0xFFFFFFFF):
-    #     child = walker.GetFirstChildElement(root_element)
-    #     if not child:
-    #         yield None
-    #     depth = 0
-    #     while max_dep >= depth:
-    #         subling = walker.GetNextSiblingElement(child)
-    #         if subling:
-    #             yield subling
-    #             child = subling
-    #             depth += 1
-    #         else:
-    #             break
-    #
-    #
-    # def get_bounding_rectangle(element: Any) -> Tuple[int, int, int, int]:
-    #     """Get bounding rectangle of element"""
-    #
-    #     top = element.CurrentBoundingRectangle.top
-    #     bottom = element.CurrentBoundingRectangle.bottom
-    #     left = element.CurrentBoundingRectangle.left
-    #     right = element.CurrentBoundingRectangle.right
-    #     return top, bottom, left, right
-    #
-    #
-    # def debug_ui_element(element):
-    #     """For debugging purposes"""
-    #
-    #     print(40 * "=")
-    #     print(f"Element name: {element.CurrentName}")
-    #     print(f"Current Control Type: {element.CurrentControlType}")
-    #     print(f"Current Native Window Handle: {element.CurrentNativeWindowHandle}")
-    #     print(f"Current Is Control Element: {element.CurrentIsControlElement}")
-    #     print(f"Current Is Controller For: {element.CurrentControllerFor}")
-    #
-    #
-    # # Todo: get open window.handler (id). DOUBLE check if window is has active flag if not make it visible/display
-    # #  otherwise "Camera" ControlType would not be found!!!
-    #
-    # # Todo: FIND window then do this logic below!!!!!
     # child_sub = list()
     # for subling in iterate_over_elements(raw_view_walker, root_element):
     #     match = re.search(pattern=mock_search, string=subling.CurrentName.__str__())
