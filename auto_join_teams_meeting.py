@@ -23,7 +23,6 @@ import win32gui
 import win32process
 
 
-# Todo: what if there are two or more accounts and it has different calendars????
 def _for_debugging_purpose(ensure_dispatch):
     """If Dispatch object Outlook.Application is cached then delete the file. This may happen when
     win32com.client.gencache.EnsureDispatch("Outlook.Application") was called
@@ -57,6 +56,14 @@ class SearchPattern:
         if subject:
             new_name = "".join([subject, " | Microsoft Teams"])
             self.subject_name = new_name
+
+
+@dataclass(init=False)
+class ControlType:
+    PaneControlType: int = 50033
+    CheckBoxControlType: int = 50002
+    ToolBarControlType: int = 50021
+    DocumentControlType: int = 50030
 
 
 class OutlookApi:
@@ -261,7 +268,7 @@ class EnumActiveWindows:
         setattr(window_info, "name", win32gui.GetWindowText(hwnd))
         setattr(window_info, "class_name", win32gui.GetClassName(hwnd))
         # setattr(window_info, "context", win32gui.GetDC(hwnd))
-        # print(win32gui.GetStockObject(hwnd))
+        # setattr(window_info, "stock", win32gui.GetStockObject(hwnd))
         enum_windows.append(window_info)
 
     @property
@@ -287,7 +294,6 @@ class EnumActiveWindows:
 
         win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
         win32gui.SetForegroundWindow(window_handler)
-        # win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
 
 
 class IUIAutomation:
@@ -431,12 +437,11 @@ class IUIAutomation:
         return x, y
 
     def region_control_siblings_from_document_control(self, walker, element, search_patt: SearchPattern):
-        """Retrieve two region ControlType: 50033"""
-        # Todo: create PaneControlType == 50033 class
+        """Retrieve two Pane ControlType: 50033"""
 
         siblings_5033 = list()
         for sibling in self.iterate_over_elements(walker, element):
-            if sibling.CurrentControlType == 50033:
+            if sibling.CurrentControlType == ControlType.PaneControlType:
                 siblings_5033.append(sibling)
             if search_patt.join_button_patt in sibling.CurrentName:
                 self.join_button = sibling
@@ -458,30 +463,27 @@ class IUIAutomation:
     def get_microphone_control_type(self, walker, elements: List, search_patt: SearchPattern):
         """Get microphone ControlType from Pane ControlType"""
 
-        # Todo: create class Microphone ControlType == 50002
-
         for control in elements:
             for element in self.iterate_over_elements(walker, control):
-                if element.CurrentName == search_patt.microphone_control_name:
+                if element.CurrentName == search_patt.microphone_control_name and (
+                        element.CurrentControlType == ControlType.CheckBoxControlType):
                     self.microphone_control = element
-
-    # Todo: refactor methods below --> merge to one!!!!
 
     @staticmethod
     def get_toolbar_control_type(walker, elements: List, search_patt: SearchPattern):
         """Get Toolbar ControlType from Pane ControlType"""
 
-        # Todo: create class Toolbar ControlType == 50021
         get_toolbar_control = [element for element in map(walker.GetFirstChildElement, elements) if (
-                element.CurrentControlType == 50021 and element.CurrentName == search_patt.video_options)]
+                element.CurrentControlType == ControlType.ToolBarControlType and (
+                element.CurrentName == search_patt.video_options))]
         return get_toolbar_control
 
     def get_camera_control_type(self, walker, elements: List, search_patt: SearchPattern):
         """Get Camera ControlType from ToolBar ControlType"""
 
-        # Todo: create class Camera ControlType == 50002
         self.camera_control, *_ = [element for element in map(walker.GetFirstChildElement, elements) if (
-                element.CurrentControlType == 50002 and element.CurrentName == search_patt.camera_control_name)]
+                element.CurrentControlType == ControlType.CheckBoxControlType and (
+                element.CurrentName == search_patt.camera_control_name))]
 
 
 class MouseEvents:
@@ -541,13 +543,12 @@ class TeamsRunner:
         teams_window_hwnd = teams_window[-1]
         enum.activate_window(teams_window_hwnd)
 
-        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block
+        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block.
         from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
                                                                       enum_wind=teams_window, search_patt=search_patt)
-        # Todo: create DocumentControl class == 50030
         get_document_control_list = [element for element in
                                      map(iui_auto.raw_view_walker.GetFirstChildElement, from_root_element) if
-                                     element.CurrentControlType == 50030]
+                                     element.CurrentControlType == ControlType.DocumentControlType]
 
         if not get_document_control_list:
             return False
@@ -600,7 +601,7 @@ class TeamsRunner:
         if not TeamsRunner.validate_meetings(meetings_data):
             return False
 
-        wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook, mouse=MouseEvents)
+        wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook, mouse=mouse)
 
         with ThreadPoolExecutor() as executor:
             results = executor.map(wrapper_main, meetings_data)
