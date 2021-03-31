@@ -318,7 +318,7 @@ class IUIAutomation:
 
     """
 
-    def __init__(self, camera: str = None, mic: str = None):
+    def __init__(self, camera: str , mic: str):
         self.__iui_auto_core = comtypes.client.GetModule("UIAutomationCore.dll").IUIAutomation
         self.__uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
         self.iui_automation = comtypes.client.CreateObject(self.__uuid, interface=self.__iui_auto_core)
@@ -330,8 +330,8 @@ class IUIAutomation:
         self.camera_control = None
         self.cam_state = None
         self.mic_state = None
-        self.preferred_cam_state = camera.lower() if isinstance(camera, str) and camera else None
-        self.preferred_mic_state = mic.lower() if isinstance(mic, str) and mic else None
+        self.preferred_cam_state = camera.lower() if isinstance(camera, str) and camera else ''
+        self.preferred_mic_state = mic.lower() if isinstance(mic, str) and mic else ''
 
     @staticmethod
     def iterate_over_elements(walker, element, max_iteration=0xFFFFFFFF) -> Generator[Any, None, None]:
@@ -350,6 +350,7 @@ class IUIAutomation:
             else:
                 break
 
+    # Todo: DELETE!!
     @staticmethod
     def get_bounding_rectangle(element: Any) -> Tuple[int, int, int, int]:
         """Get bounding rectangle of element"""
@@ -372,7 +373,27 @@ class IUIAutomation:
         print(f"Current Is Controller For: {element.CurrentControllerFor}")
 
     @property
-    def camera_state(self):
+    def change_camera_state(self) -> bool:
+        """Change camera current state ->> preferred state"""
+
+        current_state = self.camera_state
+        pref_state = self.preferred_cam_state
+        if current_state != pref_state:
+            return True
+        return False
+
+    @property
+    def change_mic_state(self) -> bool:
+        """Change microphone current state ->> preferred state"""
+
+        current_state = self.microphone_state
+        pref_state = self.preferred_mic_state
+        if current_state != pref_state:
+            return True
+        return False
+
+    @property
+    def camera_state(self) -> str:
         """Camera current state"""
         if not self.join_button:
             warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
@@ -380,7 +401,18 @@ class IUIAutomation:
             return self.cam_state
         result = re.search(SearchPattern.camera_re, self.join_button.CurrentName)
         *_, self.cam_state = result.group("camera").split(" ")
-        return self.cam_state
+        return self.cam_state.lower()
+
+    @property
+    def microphone_state(self):
+        """Microphone current state"""
+        if not self.join_button:
+            warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
+            self.mic_state = "unknown"
+            return self.mic_state
+        result = re.search(SearchPattern.microphone_re, self.join_button.CurrentName)
+        *_, self.mic_state = result.group("mic").split(" ")
+        return self.mic_state.lower()
 
     @property
     def get_camera_x_y(self) -> Tuple[int, int]:
@@ -408,17 +440,6 @@ class IUIAutomation:
         x = (join.CurrentBoundingRectangle.right + join.CurrentBoundingRectangle.left) // 2
         y = (join.CurrentBoundingRectangle.bottom + join.CurrentBoundingRectangle.top) // 2
         return x, y
-
-    @property
-    def microphone_state(self):
-        """Microphone current state"""
-        if not self.join_button:
-            warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
-            self.mic_state = "unknown"
-            return self.mic_state
-        result = re.search(SearchPattern.microphone_re, self.join_button.CurrentName)
-        *_, self.mic_state = result.group("mic").split(" ")
-        return self.mic_state
 
     def region_control_siblings_from_document_control(self, walker, element, search_patt: SearchPattern):
         """Retrieve two region ControlType: 50033"""
@@ -502,8 +523,16 @@ class TeamsRunner:
         return True
 
     @staticmethod
+    def validate_mic_camera_join_controls(mic, cam, jbutton):
+        """Validate if all necessary buttons are parsed"""
+
+        if not mic or not cam or not jbutton:
+            return False
+        return True
+
+    @staticmethod
     def main(meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation,
-             outlook: OutlookApi):
+             outlook: OutlookApi, mouse: MouseEvents) -> bool:
         """This would be refactored"""
         # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
 
@@ -534,6 +563,7 @@ class TeamsRunner:
         if not get_document_control_list:
             return False
 
+        # Get Pane ControlTypes and get join button
         document_control, *_ = get_document_control_list
         get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
             walker=iui_auto.control_view_walker,
@@ -546,31 +576,41 @@ class TeamsRunner:
 
         iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
 
-        if not iui_auto.microphone_control:
-            return False
-
         # Get Toolbar and Camera Controls
         tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
-
         if not tool_bar:
             return False
 
-        if not iui_auto.camera_control:
+        iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_patt)
+
+        # Verify ControlTypes: camera, microphone, join button are parsed
+        if not TeamsRunner.validate_mic_camera_join_controls(mic=iui_auto.microphone_control, cam=iui_auto.camera_control,
+                                                         jbutton=iui_auto.join_button):
             return False
 
-        # Enable microphone and camera flags
+        # Enable microphone, camera, join button coordinates
         camera = iui_auto.get_camera_x_y
         mic = iui_auto.get_mic_x_y
+        join_button = iui_auto.get_join_x_y
+
+        # Check if Camera and Microphone should be changed their state
+        if iui_auto.change_camera_state:
+            mouse.left_button_click(*camera)
+        if iui_auto.change_mic_state:
+            mouse.left_button_click(*mic)
+
+        # Press JOIN button:
+        mouse.left_button_click(*join_button)
 
     @classmethod
     def run_meetings(cls, meetings_data: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
-                     iui_auto: IUIAutomation, outlook: OutlookApi) -> bool:
+                     iui_auto: IUIAutomation, outlook: OutlookApi, mouse: MouseEvents) -> bool:
         """Validate meetings first and then run them."""
 
         if not TeamsRunner.validate_meetings(meetings_data):
             return False
 
-        wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook)
+        wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook, mouse=MouseEvents)
 
         with ThreadPoolExecutor() as executor:
             results = executor.map(wrapper_main, meetings_data)
