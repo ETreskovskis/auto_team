@@ -43,14 +43,16 @@ class DataStorage:
 class SearchPattern:
     """Holds various search patterns for finding window name, button names etc."""
 
-    microphone = re.compile(pattern="(?P<mic>[a-zA-Z]ic\s[a-zA-Z]{2,3})")
-    camera = re.compile(pattern="(?P<camera>[a-zA-Z]amera\s[a-zA-Z]{2,3})")
+    microphone_re = re.compile(pattern="(?P<mic>[a-zA-Z]ic\s[a-zA-Z]{2,3})")
+    camera_re = re.compile(pattern="(?P<camera>[a-zA-Z]amera\s[a-zA-Z]{2,3})")
 
     subject_unknown = 'New Window | Microsoft Teams'
     subject_name: str = None
     microsoft_teams = re.compile(pattern="Microsoft Teams")
     join_button_patt = "Join With"
     microphone_control_name = "Microphone"
+    video_options = "Video options"
+    camera_control_name = "Camera"
 
     def add_name(self, subject: str):
         if subject:
@@ -295,9 +297,19 @@ class OutlookApi:
         if not get_controls_50033_list or len(get_controls_50033_list) < 2:
             return False
 
+        iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
 
+        if not iui_auto.microphone_control:
+            return False
 
+        # Get Toolbar and Camera Controls
+        tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
 
+        if not tool_bar:
+            return False
+
+        if not iui_auto.camera_control:
+            return False
 
 
 class EnumActiveWindows:
@@ -451,7 +463,7 @@ class IUIAutomation:
             warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
             self.mic_state = "unknown"
             return self.mic_state
-        result = re.search(SearchPattern.microphone, self.join_button.CurrentName)
+        result = re.search(SearchPattern.microphone_re, self.join_button.CurrentName)
         *_, self.mic_state = result.group("mic").split(" ")
         return self.mic_state
 
@@ -489,7 +501,24 @@ class IUIAutomation:
             for element in self.iterate_over_elements(walker, control):
                 if element.CurrentName == search_patt.microphone_control_name:
                     self.microphone_control = element
-                    return self.microphone_control
+
+    # Todo: refactor methods below --> merge to one!!!!
+
+    @staticmethod
+    def get_toolbar_control_type(walker, elements: List, search_patt: SearchPattern):
+        """Get Toolbar ControlType from Pane ControlType"""
+
+        # Todo: create class Toolbar ControlType == 50021
+        get_toolbar_control = [element for element in map(walker.GetFirstChildElement, elements) if (
+                    element.CurrentControlType == 50021 and element.CurrentName == search_patt.video_options)]
+        return get_toolbar_control
+
+    def get_camera_control_type(self, walker, elements: List, search_patt: SearchPattern):
+        """Get Camera ControlType from ToolBar ControlType"""
+
+        # Todo: create class Camera ControlType == 50002
+        self.camera_control, *_ = [element for element in map(walker.GetFirstChildElement, elements) if (
+                element.CurrentControlType == 50002 and element.CurrentName == search_patt.camera_control_name)]
 
 
 class MouseEvents:
@@ -675,12 +704,15 @@ if __name__ == '__main__':
     print("**" * 100)
     get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
                    if element.CurrentControlType == 50021]
-    print(get_toolbar[0].CurrentName, get_toolbar[0].CurrentControlType, get_bounding_rectangle(get_toolbar[0])) # SHOULD BE: CurrentName -> 'Video options'
+    print(get_toolbar[0].CurrentName, get_toolbar[0].CurrentControlType,
+          get_bounding_rectangle(get_toolbar[0]))  # SHOULD BE: CurrentName -> 'Video options'
 
-    # # # Get Camera ControlType
-    # get_camera, *_ = [camera for camera in map(control_view_walker.GetFirstChildElement, get_toolbar) if
-    #                   camera.CurrentControlType == 50002]
-    # print(get_camera.CurrentControlType, get_camera.CurrentName)
+    # # Get Camera ControlType
+    get_camera = [camera_re for camera_re in map(control_view_walker.GetFirstChildElement, get_toolbar) if
+                      camera_re.CurrentControlType == 50002]
+    print(get_camera[0].CurrentControlType, get_camera[0].CurrentName)
+    print(get_camera)
+
     # _print_bouding_rectangle(get_camera)
     #
     # x = (get_camera.CurrentBoundingRectangle.right + get_camera.CurrentBoundingRectangle.left) // 2
