@@ -198,7 +198,7 @@ class OutlookApi:
                 (waiting_time.total_seconds(), url_result, possible_win_name, meeting_object))
         return waiting_process
 
-    def _wait_for_meeting(self, meeting_data: Tuple[float, str, SearchPattern, Any]) -> bool:
+    def wait_for_meeting(self, meeting_data: Tuple[float, str, SearchPattern, Any]) -> bool:
         """Wait for meeting. Join the meeting 3 minutes before start"""
 
         seconds, url, _, meet_object = meeting_data
@@ -215,7 +215,8 @@ class OutlookApi:
         return self._open_teams_meet_via_url(url)
 
     @staticmethod
-    def drop_outdated_meetings(meetings: List[Tuple[float, str, SearchPattern, Any]]):
+    def drop_outdated_meetings(meetings: List[Tuple[float, str, SearchPattern, Any]]) -> List[
+        Tuple[float, str, SearchPattern, Any]]:
         """Drop outdated meetings when time is negative"""
 
         for _enum, meeting in enumerate(meetings):
@@ -224,15 +225,7 @@ class OutlookApi:
                 meetings.pop(_enum)
         return meetings
 
-    @staticmethod
-    def validate_meetings(meetings: List):
-        """Validate if there is valid meeting list"""
-
-        if not meetings:
-            return False
-        return True
-
-    def start_meetings(self, enum: EnumActiveWindows, iui_auto: IUIAutomation):
+    def available_meetings(self, enum: EnumActiveWindows, iui_auto: IUIAutomation):
         """Main method of Outlook calendar logic."""
 
         all_meetings = self._sort_calendar_meeting_object()
@@ -241,77 +234,9 @@ class OutlookApi:
         sorted_meetings = sorted(parsed_meeting_data)
         waiting_meetings = self._meeting_time_and_url_mapper(sorted_meetings)
 
-        # Remove and drop outdated meetings. Validate if there are any
+        # Remove and drop outdated meetings.
         current_meetings = self.drop_outdated_meetings(waiting_meetings)
-        if not self.validate_meetings(current_meetings):
-            return False
-
-        wrapper_main = partial(self.main, enum=enum, iui_auto=iui_auto)
-
-        with ThreadPoolExecutor() as executor:
-            results = executor.map(wrapper_main, current_meetings)
-
-            for meet_result in results:
-                print(f"Meeting starts in 3min. Window is open: {meet_result}")
-
-    def main(self, meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation):
-        """This would be refactored"""
-        # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
-
-        wait_for_meeting = self._wait_for_meeting(meeting_data=meeting)
-        if not wait_for_meeting:
-            return False
-
-        time_to_start, url, search_patt, meet_obj = meeting
-
-        # Enumerate active windows
-        enumerated = enum.enumerate_windows
-        teams_window = enum.validate_teams_open_window(enumerated, search_patt)
-        if not teams_window:
-            return False
-
-        # Activate window. Set window as foreground window.
-        teams_window_hwnd = teams_window[-1]
-        enum.activate_window(teams_window_hwnd)
-
-        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block
-        from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
-                                                                      enum_wind=teams_window, search_patt=search_patt)
-        # Todo: create DocumentControl class == 50030
-        get_document_control_list = [element for element in
-                                     map(iui_auto.raw_view_walker.GetFirstChildElement, from_root_element) if
-                                     element.CurrentControlType == 50030]
-
-        if not get_document_control_list:
-            return False
-
-        document_control, *_ = get_document_control_list
-        get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
-            walker=iui_auto.control_view_walker,
-            element=document_control,
-            search_patt=search_patt)
-
-        # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
-        if not get_controls_50033_list or len(get_controls_50033_list) < 2:
-            return False
-
-        iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
-
-        if not iui_auto.microphone_control:
-            return False
-
-        # Get Toolbar and Camera Controls
-        tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
-
-        if not tool_bar:
-            return False
-
-        if not iui_auto.camera_control:
-            return False
-
-        # Enable microphone and camera flags
-        camera = iui_auto.get_camera_x_y
-        mic = iui_auto.get_mic_x_y
+        return current_meetings
 
 
 class EnumActiveWindows:
@@ -561,6 +486,96 @@ class MouseEvents:
         time.sleep(0.5)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         time.sleep(0.5)
+
+
+class TeamsRunner:
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def validate_meetings(meetings: List):
+        """Validate if there is valid meeting list"""
+
+        if not meetings:
+            return False
+        return True
+
+    @staticmethod
+    def main(meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation,
+             outlook: OutlookApi):
+        """This would be refactored"""
+        # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
+
+        wait_for_meeting = outlook.wait_for_meeting(meeting_data=meeting)
+        if not wait_for_meeting:
+            return False
+
+        time_to_start, url, search_patt, meet_obj = meeting
+
+        # Enumerate active windows
+        enumerated = enum.enumerate_windows
+        teams_window = enum.validate_teams_open_window(enumerated, search_patt)
+        if not teams_window:
+            return False
+
+        # Activate window. Set window as foreground window.
+        teams_window_hwnd = teams_window[-1]
+        enum.activate_window(teams_window_hwnd)
+
+        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block
+        from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
+                                                                      enum_wind=teams_window, search_patt=search_patt)
+        # Todo: create DocumentControl class == 50030
+        get_document_control_list = [element for element in
+                                     map(iui_auto.raw_view_walker.GetFirstChildElement, from_root_element) if
+                                     element.CurrentControlType == 50030]
+
+        if not get_document_control_list:
+            return False
+
+        document_control, *_ = get_document_control_list
+        get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
+            walker=iui_auto.control_view_walker,
+            element=document_control,
+            search_patt=search_patt)
+
+        # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
+        if not get_controls_50033_list or len(get_controls_50033_list) < 2:
+            return False
+
+        iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
+
+        if not iui_auto.microphone_control:
+            return False
+
+        # Get Toolbar and Camera Controls
+        tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
+
+        if not tool_bar:
+            return False
+
+        if not iui_auto.camera_control:
+            return False
+
+        # Enable microphone and camera flags
+        camera = iui_auto.get_camera_x_y
+        mic = iui_auto.get_mic_x_y
+
+    def run_meetings(self, meetings: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
+                     iui_auto: IUIAutomation, outlook: OutlookApi) -> bool:
+        """Validate meetings first and run them."""
+
+        if not self.validate_meetings(meetings):
+            return False
+
+        wrapper_main = partial(self.main, enum=enum, iui_auto=iui_auto, outlook=outlook)
+
+        with ThreadPoolExecutor() as executor:
+            results = executor.map(wrapper_main, meetings)
+
+            for meet_result in results:
+                print(f"Meeting starts in 3min. Window is open: {meet_result}")
 
 
 if __name__ == '__main__':
