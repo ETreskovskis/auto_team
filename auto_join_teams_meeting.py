@@ -549,7 +549,7 @@ class IUIAutomation:
 
         # Todo: create class Toolbar ControlType == 50021
         get_toolbar_control = [element for element in map(walker.GetFirstChildElement, elements) if (
-                    element.CurrentControlType == 50021 and element.CurrentName == search_patt.video_options)]
+                element.CurrentControlType == 50021 and element.CurrentName == search_patt.video_options)]
         return get_toolbar_control
 
     def get_camera_control_type(self, walker, elements: List, search_patt: SearchPattern):
@@ -576,6 +576,12 @@ class MouseEvents:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN")
+    parser.add_argument("--mic_state", type=int, required=True, help="Provide flag for microphone: 1 - ON, 0 - OFF")
+    parser.add_argument("--camera_state", type=int, required=True, help="Provide flag for camera: 1 - ON, 0 - OFF")
+    parser.add_argument("--start_before", type=int, required=False,
+                        help="Provide time (seconds) to join before actual meeting has started")
+
+    arguments = parser.parse_args()
 
     # Todo: create parser for flags
     # Initialize IuiAuto, EnumClass, Outlook
