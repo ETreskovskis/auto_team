@@ -318,7 +318,7 @@ class IUIAutomation:
 
     """
 
-    def __init__(self, camera: str , mic: str):
+    def __init__(self, camera: str, mic: str):
         self.__iui_auto_core = comtypes.client.GetModule("UIAutomationCore.dll").IUIAutomation
         self.__uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
         self.iui_automation = comtypes.client.CreateObject(self.__uuid, interface=self.__iui_auto_core)
@@ -349,17 +349,6 @@ class IUIAutomation:
                 depth += 1
             else:
                 break
-
-    # Todo: DELETE!!
-    @staticmethod
-    def get_bounding_rectangle(element: Any) -> Tuple[int, int, int, int]:
-        """Get bounding rectangle of element"""
-
-        top = element.CurrentBoundingRectangle.top
-        bottom = element.CurrentBoundingRectangle.bottom
-        left = element.CurrentBoundingRectangle.left
-        right = element.CurrentBoundingRectangle.right
-        return top, bottom, left, right
 
     @staticmethod
     def debug_ui_element(element):
@@ -584,8 +573,9 @@ class TeamsRunner:
         iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_patt)
 
         # Verify ControlTypes: camera, microphone, join button are parsed
-        if not TeamsRunner.validate_mic_camera_join_controls(mic=iui_auto.microphone_control, cam=iui_auto.camera_control,
-                                                         jbutton=iui_auto.join_button):
+        if not TeamsRunner.validate_mic_camera_join_controls(mic=iui_auto.microphone_control,
+                                                             cam=iui_auto.camera_control,
+                                                             jbutton=iui_auto.join_button):
             return False
 
         # Enable microphone, camera, join button coordinates
@@ -638,91 +628,6 @@ if __name__ == '__main__':
     meetings = outlook_class.available_meetings()
     iui_auto_class = IUIAutomation(camera=arguments.camera_state, mic=arguments.mic_state)
     enum_class = EnumActiveWindows()
-    TeamsRunner.run_meetings(meetings, enum=enum_class, iui_auto=iui_auto_class, outlook=outlook_class)
-
-    # child_sub = list()
-    # for subling in iterate_over_elements(raw_view_walker, root_element):
-    #     match = re.search(pattern=mock_search, string=subling.CurrentName.__str__())
-    #     if match and subling.CurrentNativeWindowHandle in teams_all_windows_handlers:
-    #         child_sub.append(subling)
-    #         # print(subling.CurrentNativeWindowHandle)
-    #
-    # print("CHILD SIBLING")
-    # print(child_sub)
-    #
-    # # for subling in iterate_over_elements(raw_view_walker, child_sub[0]):
-    # #     print(subling.CurrentNativeWindowHandle)
-    # #     print(subling.CurrentControlType)
-    # #     print("=" * 60)
-    # #
-    # # for subling in iterate_over_elements(raw_view_walker, child_sub[1]):
-    # #     print(subling.CurrentNativeWindowHandle)
-    # #     print(subling.CurrentControlType)
-    # #     print("=" * 60)
-    #
-    # # for subling in child_sub: InvokeEvents.activate_window(subling.CurrentNativeWindowHandle)
-    # # time.sleep(1)
-    # #
-    # # =========================== Get ControlType Document 50030 ==================================
-    # get_document_control, *_ = [element for element in
-    #                             map(raw_view_walker.GetFirstChildElement, child_sub) if
-    #                             element.CurrentControlType == 50030]
-    # print("Document ControlType " + 40 * "=")
-    # print(get_document_control)
-    # print(40 * "=")
-    #
-    # # print(get_document_control[0].CurrentNativeWindowHandle)
-    # # print(get_document_control[1].CurrentNativeWindowHandle)
-    # #
-    # # # test_this = [child for child in child_sub if
-    # # #              raw_view_walker.GetFirstChildElement(child).CurrentControlType == 50030]
-    # # # print(test_this[0].CurrentNativeWindowHandle)
-    # # # print(test_this[1].CurrentNativeWindowHandle)
-    #
-    # # # # ITERATE over elements of ControlType Document
-    # # # # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
-    # control_50033 = list()
-    # join_button = None
-    # for item in iterate_over_elements(control_view_walker, get_document_control):
-    #     if item.CurrentControlType == 50033:
-    #         control_50033.append(item)
-    #     if SearchPattern.join_button_patt in item.CurrentName:
-    #         join_button = item
-    #
-    # print(control_50033)
-    # # print(join_button, join_button.CurrentName)
-    #
-    # # for region in control_50033:
-    # #     debug_ui_element(region)
-    # #     print(get_bounding_rectangle(region))
-    # #     print(40 * "=")
-    #
-    # # WILL NOT work or works and retrieves only 1 subling!!! need to use iterate_over_elements with control_view_walker
-    # # get_check_box = [element.CurrentName for element in map(control_view_walker.GetFirstChildElement, [control_50033[1]])]
-    # # print(get_check_box)
-    #
-    # # mic = list()
-    # # join_button = None
-    # for control_ in control_50033:
-    #
-    #     for item in iterate_over_elements(control_view_walker, control_):
-    #         print(item.CurrentName, item.CurrentControlType, get_bounding_rectangle(item))
-    #
-    # # # # GET TOOLBAR 50021 then get camera access
-    # print("**" * 100)
-    # get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
-    #                if element.CurrentControlType == 50021]
-    # print(get_toolbar[0].CurrentName, get_toolbar[0].CurrentControlType,
-    #       get_bounding_rectangle(get_toolbar[0]))  # SHOULD BE: CurrentName -> 'Video options'
-    #
-    # # # Get Camera ControlType
-    # get_camera = [camera_re for camera_re in map(control_view_walker.GetFirstChildElement, get_toolbar) if
-    #                   camera_re.CurrentControlType == 50002]
-    # print(get_camera[0].CurrentControlType, get_camera[0].CurrentName)
-    # print(get_camera)
-    #
-    # # _print_bouding_rectangle(get_camera)
-    # #
-    # # x = (get_camera.CurrentBoundingRectangle.right + get_camera.CurrentBoundingRectangle.left) // 2
-    # # y = (get_camera.CurrentBoundingRectangle.bottom + get_camera.CurrentBoundingRectangle.top) // 2
-    # # MouseEvents.left_button_click(x, y)
+    mouse_event = MouseEvents()
+    TeamsRunner.run_meetings(meetings, enum=enum_class, iui_auto=iui_auto_class, outlook=outlook_class,
+                             mouse=mouse_event)
