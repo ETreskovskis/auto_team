@@ -115,7 +115,7 @@ class OutlookApi:
         calendar.Sort("[Start]")
 
         # Modify date by needs
-        today_date = datetime.datetime.today()
+        today_date = datetime.datetime.today() + datetime.timedelta(days=1)
         tomorrow_date = datetime.timedelta(days=1) + today_date
         begin_day = today_date.date().strftime("%m/%d/%Y")
         end_day = tomorrow_date.date().strftime("%m/%d/%Y")
@@ -223,11 +223,13 @@ class OutlookApi:
                 meetings.pop(_enum)
         return meetings
 
-    def validate_meetings(self, meetings: List):
+    @staticmethod
+    def validate_meetings(meetings: List):
         """Validate if there is valid meeting list"""
 
         if not meetings:
-            self.fail_flag = True
+            return False
+        return True
 
     def start_meetings(self, enum: EnumActiveWindows, iui_auto: IUIAutomation):
         """Main method of Outlook calendar logic."""
@@ -561,10 +563,12 @@ class MouseEvents:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Teams AUTO-JOIN")
-    parser.add_argument("--mic_state", type=str, required=False, help="Provide flag for microphone: 'on' or 'off'",
+    parser = argparse.ArgumentParser(description="Teams AUTO-JOIN. For additional parameter info use --help")
+    parser.add_argument("--mic_state", type=str, required=False,
+                        help="Provide flag for microphone: 'on' or 'off'. Note: this set up for all incoming meetings",
                         default="on")
-    parser.add_argument("--camera_state", type=str, required=False, help="Provide flag for camera: 'on' or 'off'",
+    parser.add_argument("--camera_state", type=str, required=False,
+                        help="Provide flag for camera: 'on' or 'off'. Note: this set up for all incoming meetings",
                         default="on")
     parser.add_argument("--start_before", type=int, required=False,
                         help="Provide time (seconds) to join before actual meeting has started",
@@ -577,8 +581,6 @@ if __name__ == '__main__':
     enum_class = EnumActiveWindows()
 
     outlook.start_meetings(enum=enum_class, iui_auto=iui_auto_class)
-
-
 
     # child_sub = list()
     # for subling in iterate_over_elements(raw_view_walker, root_element):
