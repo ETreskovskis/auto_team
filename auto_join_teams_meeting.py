@@ -23,7 +23,6 @@ import win32gui
 import win32process
 
 
-# Todo: add func to start Outlook if it closed
 # Todo: what if there are two or more accounts and it has different calendars????
 def _for_debugging_purpose(ensure_dispatch):
     """If Dispatch object Outlook.Application is cached then delete the file. This may happen when
