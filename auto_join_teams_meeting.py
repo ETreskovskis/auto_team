@@ -225,7 +225,7 @@ class OutlookApi:
                 meetings.pop(_enum)
         return meetings
 
-    def available_meetings(self, enum: EnumActiveWindows, iui_auto: IUIAutomation):
+    def available_meetings(self):
         """Main method of Outlook calendar logic."""
 
         all_meetings = self._sort_calendar_meeting_object()
@@ -494,10 +494,10 @@ class TeamsRunner:
         pass
 
     @staticmethod
-    def validate_meetings(meetings: List):
+    def validate_meetings(meeting_data: List):
         """Validate if there is valid meeting list"""
 
-        if not meetings:
+        if not meeting_data:
             return False
         return True
 
@@ -562,17 +562,18 @@ class TeamsRunner:
         camera = iui_auto.get_camera_x_y
         mic = iui_auto.get_mic_x_y
 
-    def run_meetings(self, meetings: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
+    @classmethod
+    def run_meetings(cls, meetings_data: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
                      iui_auto: IUIAutomation, outlook: OutlookApi) -> bool:
-        """Validate meetings first and run them."""
+        """Validate meetings first and then run them."""
 
-        if not self.validate_meetings(meetings):
+        if not TeamsRunner.validate_meetings(meetings_data):
             return False
 
-        wrapper_main = partial(self.main, enum=enum, iui_auto=iui_auto, outlook=outlook)
+        wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook)
 
         with ThreadPoolExecutor() as executor:
-            results = executor.map(wrapper_main, meetings)
+            results = executor.map(wrapper_main, meetings_data)
 
             for meet_result in results:
                 print(f"Meeting starts in 3min. Window is open: {meet_result}")
@@ -593,11 +594,11 @@ if __name__ == '__main__':
 
     arguments = parser.parse_args()
 
-    outlook = OutlookApi(time_before=arguments.start_before)
+    outlook_class = OutlookApi(time_before=arguments.start_before)
+    meetings = outlook_class.available_meetings()
     iui_auto_class = IUIAutomation(camera=arguments.camera_state, mic=arguments.mic_state)
     enum_class = EnumActiveWindows()
-
-    outlook.start_meetings(enum=enum_class, iui_auto=iui_auto_class)
+    TeamsRunner.run_meetings(meetings, enum=enum_class, iui_auto=iui_auto_class, outlook=outlook_class)
 
     # child_sub = list()
     # for subling in iterate_over_elements(raw_view_walker, root_element):
