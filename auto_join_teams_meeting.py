@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import _ctypes
+import ctypes
+
 import comtypes
 import comtypes.client
 import datetime
@@ -48,6 +50,7 @@ class SearchPattern:
     subject_name: str = None
     microsoft_teams = re.compile(pattern="Microsoft Teams")
     join_button_patt = "Join With"
+    microphone_control_name = "Microphone"
 
     def add_name(self, subject: str):
         if subject:
@@ -269,8 +272,30 @@ class OutlookApi:
         enumerated = enum.enumerate_windows
         teams_window = enum.validate_teams_open_window(enumerated, search_patt)
         if not teams_window:
-            self.fail_flag = True
-            return self.fail_flag
+            return False
+
+        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block
+        from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
+                                                                      enum_wind=teams_window, search_patt=search_patt)
+        # Todo: create DocumentControl class == 50030
+        get_document_control_list = [element for element in
+                                     map(iui_auto.raw_view_walker.GetFirstChildElement, from_root_element) if
+                                     element.CurrentControlType == 50030]
+
+        if not get_document_control_list:
+            return False
+
+        document_control, *_ = get_document_control_list
+        get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
+            walker=iui_auto.control_view_walker,
+            element=document_control,
+            search_patt=search_patt)
+
+        # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
+        if not get_controls_50033_list or len(get_controls_50033_list) < 2:
+            return False
+
+
 
 
 
@@ -308,7 +333,7 @@ class EnumActiveWindows:
         return self.enum_windows
 
     @staticmethod
-    def validate_teams_open_window(enumerated: List[DataStorage], search_patt: SearchPattern):
+    def validate_teams_open_window(enumerated: List[DataStorage], search_patt: SearchPattern) -> List[int]:
         """Find open Teams window. Search is based on meeting.Subject name"""
 
         teams_window = [window.handler for window in enumerated if search_patt.subject_name in window.name]
@@ -364,7 +389,9 @@ class IUIAutomation:
         self.raw_view_walker = self.iui_automation.RawViewWalker
         self.root_element = self.iui_automation.GetRootElement()
         self.join_button = None
-        self.camera_state = None
+        self.microphone_control = None
+        self.camera_control = None
+        self.cam_state = None
         self.mic_state = None
         self.preferred_states = camera, mic
 
@@ -407,33 +434,40 @@ class IUIAutomation:
         print(f"Current Is Controller For: {element.CurrentControllerFor}")
 
     @property
-    def camera(self):
+    def camera_state(self):
         """Camera current state"""
         if not self.join_button:
             warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
-            self.camera_state = "unknown"
-            return self.camera_state
+            self.cam_state = "unknown"
+            return self.cam_state
         result = re.search(SearchPattern.camera, self.join_button.CurrentName)
-        *_, self.camera_state = result.group("camera").split(" ")
-        return self.camera_state
+        *_, self.cam_state = result.group("camera").split(" ")
+        return self.cam_state
 
     @property
-    def microphone(self):
+    def microphone_state(self):
         """Microphone current state"""
         if not self.join_button:
             warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
             self.mic_state = "unknown"
-            return self.camera_state
+            return self.mic_state
         result = re.search(SearchPattern.microphone, self.join_button.CurrentName)
         *_, self.mic_state = result.group("mic").split(" ")
         return self.mic_state
 
-    @staticmethod
-    def region_siblings_from_document_control(element: Any):
+    def region_control_siblings_from_document_control(self, walker, element, search_patt: SearchPattern):
         """Retrieve two region ControlType: 50033"""
-        pass
+        # Todo: create PaneControlType == 50033 class
 
-    def child_siblings_from_root_element(self, walker, root_element, search_patt: SearchPattern):
+        siblings_5033 = list()
+        for sibling in self.iterate_over_elements(walker, element):
+            if sibling.CurrentControlType == 50033:
+                siblings_5033.append(sibling)
+            if search_patt.join_button_patt in sibling.CurrentName:
+                self.join_button = sibling
+        return siblings_5033
+
+    def child_siblings_from_root_element(self, walker, root_element, search_patt: SearchPattern, enum_wind: List):
         """Get child siblings from root element (Desktop)"""
 
         to_search = search_patt.subject_name if search_patt.subject_name else search_patt.subject_unknown
@@ -442,7 +476,20 @@ class IUIAutomation:
             match = re.search(pattern=to_search, string=sibling.CurrentName.__str__())
             if not match:
                 return False
+            if match and sibling.CurrentNativeWindowHandle in enum_wind:
+                child_sibling.append(sibling)
+        return child_sibling
 
+    def get_microphone_control_type(self, walker, elements: List, search_patt: SearchPattern):
+        """Get microphone ControlType from Pane ControlType"""
+
+        # Todo: create class Microphone ControlType == 50002
+
+        for control in elements:
+            for element in self.iterate_over_elements(walker, control):
+                if element.CurrentName == search_patt.microphone_control_name:
+                    self.microphone_control = element
+                    return self.microphone_control
 
 
 class MouseEvents:
@@ -540,6 +587,7 @@ if __name__ == '__main__':
         right = element.CurrentBoundingRectangle.right
         return top, bottom, left, right
 
+
     def debug_ui_element(element):
         """For debugging purposes"""
 
@@ -618,14 +666,16 @@ if __name__ == '__main__':
 
     # mic = list()
     # join_button = None
-    # for item in iterate_over_elements(control_view_walker, control_50033[1]):
-    #     print(item.CurrentName, item.CurrentControlType, get_bounding_rectangle(item))
+    for control_ in control_50033:
+
+        for item in iterate_over_elements(control_view_walker, control_):
+            print(item.CurrentName, item.CurrentControlType, get_bounding_rectangle(item))
 
     # # # GET TOOLBAR 50021 then get camera access
-    # print("**" * 100)
-    # get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
-    #                if element.CurrentControlType == 50021]
-    # print(get_toolbar[0].CurrentName) # SHOULD BE: CurrentName -> 'Video options'
+    print("**" * 100)
+    get_toolbar = [element for element in map(raw_view_walker.GetFirstChildElement, control_50033)
+                   if element.CurrentControlType == 50021]
+    print(get_toolbar[0].CurrentName, get_toolbar[0].CurrentControlType, get_bounding_rectangle(get_toolbar[0])) # SHOULD BE: CurrentName -> 'Video options'
 
     # # # Get Camera ControlType
     # get_camera, *_ = [camera for camera in map(control_view_walker.GetFirstChildElement, get_toolbar) if
