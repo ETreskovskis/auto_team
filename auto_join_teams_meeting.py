@@ -276,6 +276,10 @@ class OutlookApi:
         if not teams_window:
             return False
 
+        # Activate window. Set window as foreground window.
+        teams_window_hwnd = teams_window[-1]
+        enum.activate_window(teams_window_hwnd)
+
         # Iterate over Teams Window. Get ControlTypes. IUIAutomation block
         from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
                                                                       enum_wind=teams_window, search_patt=search_patt)
@@ -356,12 +360,11 @@ class EnumActiveWindows:
 
     @staticmethod
     def activate_window(window_handler):
-        """Retrieve window handler by search pattern. Set window as foreground window and resize it. Perform button
-        click"""
+        """Retrieve window handler by search pattern. Set window as foreground window."""
 
         win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
         win32gui.SetForegroundWindow(window_handler)
-        win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
+        # win32gui.MoveWindow(window_handler, 365, 100, 1200, 800, win32con.FALSE)
 
 
 class IUIAutomation:
