@@ -47,6 +47,7 @@ class SearchPattern:
     subject_unknown = 'New Window | Microsoft Teams'
     subject_known: str = None
     microsoft_teams = re.compile(pattern="Microsoft Teams")
+    join_button_patt = "Join With"
 
     def add_name(self, subject: str):
         if subject:
@@ -314,14 +315,17 @@ class IUIAutomation:
     https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.accessiblestates?view=netframework-4.8
 
     """
-
-    def __init__(self):
+    # Todo: get preferred camera and mic states from parser
+    def __init__(self, camera: str = None, mic: str = None):
         self.__iui_auto_core = comtypes.client.GetModule("UIAutomationCore.dll").IUIAutomation
         self.__uuid = "{ff48dba4-60ef-4201-aa87-54103eef594e}"
         self.iui_automation = comtypes.client.CreateObject(self.__uuid, interface=self.__iui_auto_core)
         self.control_view_walker = self.iui_automation.ControlViewWalker
         self.raw_view_walker = self.iui_automation.RawViewWalker
         self.root_element = self.iui_automation.GetRootElement()
+        self.join_button = None
+        self.camera_state = camera
+        self.mic_state = mic
 
     @staticmethod
     def iterate_over_elements(walker, element, max_iteration=0xFFFFFFFF) -> Generator[Any, None, None]:
@@ -361,6 +365,28 @@ class IUIAutomation:
         print(f"Current Is Control Element: {element.CurrentIsControlElement}")
         print(f"Current Is Controller For: {element.CurrentControllerFor}")
 
+    @property
+    def camera(self):
+        """Camera current state"""
+        if not self.join_button:
+            warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
+            self.camera_state = "unknown"
+            return self.camera_state
+        result = re.search(SearchPattern.camera, self.join_button.CurrentName)
+        *_, self.camera_state = result.group("camera").split(" ")
+        return self.camera_state
+
+    @property
+    def microphone(self):
+        """Microphone current state"""
+        if not self.join_button:
+            warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
+            self.mic_state = "unknown"
+            return self.camera_state
+        result = re.search(SearchPattern.microphone, self.join_button.CurrentName)
+        *_, self.mic_state = result.group("mic").split(" ")
+        return self.mic_state
+
 
 class MouseEvents:
     """Invoke mouse events"""
@@ -394,6 +420,7 @@ if __name__ == '__main__':
 
     # Todo: this code is executed after Teams window is displayed!!!
     # Todo: create CLASS wrapper which takes the input and gives output via ThreadPoolExecutor
+    # Todo: if _wait_for_meeting is True continue logic below otherwise stop.
 
 
     enum = EnumActiveWindows()
@@ -506,7 +533,7 @@ if __name__ == '__main__':
     for item in iterate_over_elements(control_view_walker, get_document_control[0]):
         if item.CurrentControlType == 50033:
             control_50033.append(item)
-        if "Join With" in item.CurrentName:
+        if SearchPattern.join_button_patt in item.CurrentName:
             join_button = item
 
     print(control_50033)
