@@ -3,6 +3,7 @@ from __future__ import annotations
 import _ctypes
 import ctypes
 import argparse
+from functools import partial
 
 import comtypes
 import comtypes.client
@@ -231,7 +232,7 @@ class OutlookApi:
         if not meetings:
             self.fail_flag = True
 
-    def main(self):
+    def start_meetings(self, enum: EnumActiveWindows, iui_auto: IUIAutomation):
         """Main method of Outlook calendar logic."""
 
         all_meetings = self._sort_calendar_meeting_object()
@@ -239,33 +240,21 @@ class OutlookApi:
         # sort meetings by time
         sorted_meetings = sorted(parsed_meeting_data)
         waiting_meetings = self._meeting_time_and_url_mapper(sorted_meetings)
-        # Output:  List[Tuple[float, str, SearchPattern, Any]]
-
-        # FOR:::ITERATE OVER waiting_process
 
         # Remove and drop outdated meetings. Validate if there are any
-        # current_meetings = self.drop_outdated_meetings(waiting_meetings)
-        # return not self.validate_meetings(current_meetings)
+        current_meetings = self.drop_outdated_meetings(waiting_meetings)
+        if not self.validate_meetings(current_meetings):
+            return False
 
-        wait_for_meeting = self._wait_for_meeting
-        # if wait_for_meeting:
-        #     # Todo: initialize IUIAutomation with parser settings (mic on/off, camera on/off)
-        #     # Todo: initialize EnumActiveWindows and enumerate_windows
-        #     #     Todo: find window by search pattern meeting.Subject
-        #     #     Todo: active window with EnumActiveWindows.activate_window
-        #     #     Todo: find window and his sublings
-        #     # Todo: Get Document control type
-        #     # Todo: Get Pane
-        #     pass
+        wrapper_main = partial(self.main, enum=enum, iui_auto=iui_auto)
 
-        return waiting_meetings
-        # with ThreadPoolExecutor() as executor:
-        #     results = executor.map(self._wait_for_meeting, waiting_process)
-        #
-        #     for meet_result in results:
-        #         print(f"Meeting starts in 3min. Window is open: {meet_result}")
+        with ThreadPoolExecutor() as executor:
+            results = executor.map(wrapper_main, current_meetings)
 
-    def _main(self, meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation):
+            for meet_result in results:
+                print(f"Meeting starts in 3min. Window is open: {meet_result}")
+
+    def main(self, meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation):
         """This would be refactored"""
         # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
 
@@ -576,18 +565,25 @@ class MouseEvents:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN")
-    parser.add_argument("--mic_state", type=int, required=True, help="Provide flag for microphone: 1 - ON, 0 - OFF")
-    parser.add_argument("--camera_state", type=int, required=True, help="Provide flag for camera: 1 - ON, 0 - OFF")
+    parser.add_argument("--mic_state", type=int, required=False, help="Provide flag for microphone: 1 - ON, 0 - OFF",
+                        default=1)
+    parser.add_argument("--camera_state", type=int, required=False, help="Provide flag for camera: 1 - ON, 0 - OFF",
+                        default=1)
     parser.add_argument("--start_before", type=int, required=False,
-                        help="Provide time (seconds) to join before actual meeting has started")
+                        help="Provide time (seconds) to join before actual meeting has started",
+                        default=3 * 60)
 
     arguments = parser.parse_args()
+
+    outlook = OutlookApi(time_before=arguments.start_before)
+
+
+
 
     # Todo: create parser for flags
     # Initialize IuiAuto, EnumClass, Outlook
     # Todo: parse flags for those class
 
-    pass
     # from pprint import pprint
     #
     # # Todo: add flags: microphone ON/OFF camera ON/OFF. To determine current state of mic and camera, Parse "join" button
