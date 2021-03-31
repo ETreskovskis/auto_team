@@ -45,14 +45,14 @@ class SearchPattern:
     camera = re.compile(pattern="(?P<camera>[a-zA-Z]amera\s[a-zA-Z]{2,3})")
 
     subject_unknown = 'New Window | Microsoft Teams'
-    subject_known: str = None
+    subject_name: str = None
     microsoft_teams = re.compile(pattern="Microsoft Teams")
     join_button_patt = "Join With"
 
     def add_name(self, subject: str):
         if subject:
             new_name = "".join([subject, " | Microsoft Teams"])
-            self.subject_known = new_name
+            self.subject_name = new_name
 
 
 class OutlookApi:
@@ -193,10 +193,10 @@ class OutlookApi:
                 (waiting_time.total_seconds(), url_result, possible_win_name, meeting_object))
         return waiting_process
 
-    def _wait_for_meeting(self, meeting_data: Tuple[int, str, Any]) -> bool:
+    def _wait_for_meeting(self, meeting_data: Tuple[float, str, SearchPattern, Any]) -> bool:
         """Wait for meeting. Join the meeting 3 minutes before start"""
 
-        seconds, url, meet_object = meeting_data
+        seconds, url, _, meet_object = meeting_data
         if self.fail_flag or not url:
             warnings.warn(
                 message=f"Meeting {meet_object.Subject} URL is missing: {url}. Check displayed OutLook window")
@@ -232,12 +232,14 @@ class OutlookApi:
         parsed_meeting_data = ((meeting.Start, meeting) for meeting in self._populate_meeting_events(all_meetings))
         # sort meetings by time
         sorted_meetings = sorted(parsed_meeting_data)
-        waiting_process = self._meeting_time_and_url_mapper(sorted_meetings)
+        waiting_meetings = self._meeting_time_and_url_mapper(sorted_meetings)
         # Output:  List[Tuple[float, str, SearchPattern, Any]]
 
-        # Remove and drop outdated meetings
-        # valid_meetings = self.drop_outdated_meetings(waiting_process)
-        # return not validate_meetings(valid_meetings)
+        # FOR:::ITERATE OVER waiting_process
+
+        # Remove and drop outdated meetings. Validate if there are any
+        # current_meetings = self.drop_outdated_meetings(waiting_meetings)
+        # return not self.validate_meetings(current_meetings)
 
         wait_for_meeting = self._wait_for_meeting
         # if wait_for_meeting:
@@ -250,12 +252,27 @@ class OutlookApi:
         #     # Todo: Get Pane
         #     pass
 
-        return waiting_process
+        return waiting_meetings
         # with ThreadPoolExecutor() as executor:
         #     results = executor.map(self._wait_for_meeting, waiting_process)
         #
         #     for meet_result in results:
         #         print(f"Meeting starts in 3min. Window is open: {meet_result}")
+
+    def _main(self, meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation):
+        """This would be refactored"""
+        # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
+
+        time_to_start, url, search_patt, meet_obj = meeting
+
+        # Enumerate active windows
+        enumerated = enum.enumerate_windows
+        teams_window = enum.validate_teams_open_window(enumerated, search_patt)
+        if not teams_window:
+            self.fail_flag = True
+            return self.fail_flag
+
+
 
 
 class EnumActiveWindows:
@@ -285,14 +302,20 @@ class EnumActiveWindows:
 
     @property
     def enumerate_windows(self):
-        """ADD DOCS"""
+        """Retrieve enumerated active windows"""
 
         win32gui.EnumWindows(self._get_window_info, self.enum_windows)
         return self.enum_windows
 
-    def validate_teams_open_window(self, ):
+    @staticmethod
+    def validate_teams_open_window(enumerated: List[DataStorage], search_patt: SearchPattern):
         """Find open Teams window. Search is based on meeting.Subject name"""
-        pass
+
+        teams_window = [window.handler for window in enumerated if search_patt.subject_name in window.name]
+        if not teams_window:
+            teams_window = [window.handler for window in enumerated if
+                            search_patt.subject_unknown in window.name]
+        return teams_window
 
     @staticmethod
     def activate_window(window_handler):
@@ -341,8 +364,9 @@ class IUIAutomation:
         self.raw_view_walker = self.iui_automation.RawViewWalker
         self.root_element = self.iui_automation.GetRootElement()
         self.join_button = None
-        self.camera_state = camera
-        self.mic_state = mic
+        self.camera_state = None
+        self.mic_state = None
+        self.preferred_states = camera, mic
 
     @staticmethod
     def iterate_over_elements(walker, element, max_iteration=0xFFFFFFFF) -> Generator[Any, None, None]:
@@ -409,10 +433,17 @@ class IUIAutomation:
         """Retrieve two region ControlType: 50033"""
         pass
 
-    @staticmethod
-    def childs_from_root_element(walker, root_element):
-        """ADD DOCS"""
-        pass
+    def child_siblings_from_root_element(self, walker, root_element, search_patt: SearchPattern):
+        """Get child siblings from root element (Desktop)"""
+
+        to_search = search_patt.subject_name if search_patt.subject_name else search_patt.subject_unknown
+        child_sibling = list()
+        for sibling in self.iterate_over_elements(walker, root_element):
+            match = re.search(pattern=to_search, string=sibling.CurrentName.__str__())
+            if not match:
+                return False
+
+
 
 class MouseEvents:
     """Invoke mouse events"""
@@ -442,7 +473,7 @@ if __name__ == '__main__':
     # List[Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]]
     print(OutlookApi.__name__ + "=" * 50)
     for time, url, pattern, data_obj in get_data:
-        mock_search = pattern.subject_known
+        mock_search = pattern.subject_name
         print(mock_search)
     print("=" * 50)
 
@@ -450,11 +481,11 @@ if __name__ == '__main__':
     # Todo: create CLASS wrapper which takes the input and gives output via ThreadPoolExecutor
     # Todo: if _wait_for_meeting is True continue logic below otherwise stop.
 
-    enum = EnumActiveWindows()
-    data = enum.enumerate_windows
-    teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
+    _enum = EnumActiveWindows()
+    data = _enum.enumerate_windows
+    # teams_all_windows = [(win.name, win.class_name, win.handler) for win in data if mock_search in win.name]
     teams_all_windows_handlers = [win.handler for win in data if mock_search in win.name]
-    pprint(teams_all_windows)
+    # pprint(teams_all_windows)
     pprint(teams_all_windows_handlers)
     print("=" * 50)
     # win = [('Microsoft Teams Notification', 'Chrome_WidgetWin_1', 13110044),
@@ -526,7 +557,7 @@ if __name__ == '__main__':
     # Todo: FIND window then do this logic below!!!!!
     child_sub = list()
     for subling in iterate_over_elements(raw_view_walker, root_element):
-        match = re.search(pattern=SearchPattern.microsoft_teams, string=subling.CurrentName.__str__())
+        match = re.search(pattern=mock_search, string=subling.CurrentName.__str__())
         if match and subling.CurrentNativeWindowHandle in teams_all_windows_handlers:
             child_sub.append(subling)
             # print(subling.CurrentNativeWindowHandle)
@@ -549,8 +580,8 @@ if __name__ == '__main__':
     #
     # =========================== Get ControlType Document 50030 ==================================
     get_document_control, *_ = [element for element in
-                            map(raw_view_walker.GetFirstChildElement, child_sub) if
-                            element.CurrentControlType == 50030]
+                                map(raw_view_walker.GetFirstChildElement, child_sub) if
+                                element.CurrentControlType == 50030]
     print("Document ControlType " + 40 * "=")
     print(get_document_control)
     print(40 * "=")
