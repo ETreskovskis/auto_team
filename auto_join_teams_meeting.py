@@ -51,6 +51,8 @@ class SearchPattern:
     microphone_control_name = "Microphone"
     video_options = "Video options"
     camera_control_name = "Camera"
+    http_pattern = re.compile(pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+    meet_join_fragment = re.compile(pattern="meetup-join")
 
     def add_name(self, subject: str):
         if subject:
@@ -82,7 +84,6 @@ class OutlookApi:
     def __init__(self, time_before: int = 3 * 60):
         self.outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         self.folders = self._enumerate_outlook_folders()
-        self.fail_flag = False
         self.start_before = time_before
 
     def _enumerate_outlook_folders(self) -> DataStorage:
@@ -151,29 +152,26 @@ class OutlookApi:
 
             yield event
 
-    def _parse_teams_meet_join_url(self, meeting_event: DataStorage) -> Optional[str]:
+    @staticmethod
+    def _parse_teams_meet_join_url(meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Properties. If URL is absent then open Outlook Meeting Occurrence window
         """
 
         meet_properties = meeting_event.Properties
         meet_url = None
 
-        general_url_pattern = re.compile(
-            pattern="http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
-        meeting_join = re.compile(pattern="meetup-join")
         for items in meet_properties:
-            result = re.findall(general_url_pattern, string=items)
+            result = re.findall(SearchPattern.http_pattern, string=items)
             if result:
                 format_result = [url.strip(">") for url in result]
                 removed_https_prefix = [url.strip("https:") for url in format_result]
-                meet_url = [url for url in removed_https_prefix if re.search(meeting_join, url)]
+                meet_url = [url for url in removed_https_prefix if re.search(SearchPattern.meet_join_fragment, url)]
 
                 if meet_url:
                     return meet_url[0]
 
         if not meet_url:
             warnings.warn("Meeting URL ir missing!")
-            self.fail_flag = True
             meeting_event.Display()
             return meet_url
 
@@ -208,7 +206,7 @@ class OutlookApi:
         """Wait for meeting. Join the meeting 3 minutes before start"""
 
         seconds, url, _, meet_object = meeting_data
-        if self.fail_flag or not url:
+        if not url:
             warnings.warn(
                 message=f"Meeting {meet_object.Subject} URL is missing: {url}. Check displayed OutLook window")
             return False
@@ -222,7 +220,7 @@ class OutlookApi:
 
     @staticmethod
     def drop_outdated_meetings(meetings: List[Tuple[float, str, SearchPattern, Any]]) -> List[
-        Tuple[float, str, SearchPattern, Any]]:
+         Tuple[float, str, SearchPattern, Any]]:
         """Drop outdated meetings when time is negative"""
 
         for _enum, meeting in enumerate(meetings):
@@ -474,7 +472,8 @@ class IUIAutomation:
 
         get_toolbar_control = [element for element in map(walker.GetFirstChildElement, elements) if (
                 element.CurrentControlType == ControlType.ToolBarControlType and (
-                element.CurrentName == search_patt.video_options))]
+                element.CurrentName == search_patt.video_options))
+                               ]
         return get_toolbar_control
 
     def get_camera_control_type(self, walker, elements: List, search_patt: SearchPattern):
@@ -482,7 +481,8 @@ class IUIAutomation:
 
         self.camera_control, *_ = [element for element in map(walker.GetFirstChildElement, elements) if (
                 element.CurrentControlType == ControlType.CheckBoxControlType and (
-                element.CurrentName == search_patt.camera_control_name))]
+                element.CurrentName == search_patt.camera_control_name))
+                                   ]
 
 
 class MouseEvents:
@@ -526,8 +526,8 @@ class TeamsRunner:
         """This would be refactored"""
         # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
 
-        wait_for_meeting = outlook.wait_for_meeting(meeting_data=meeting)
-        if not wait_for_meeting:
+        waiting_for_meeting = outlook.wait_for_meeting(meeting_data=meeting)
+        if not waiting_for_meeting:
             return False, meeting
 
         time_to_start, url, search_patt, meet_obj = meeting
