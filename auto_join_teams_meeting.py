@@ -45,8 +45,8 @@ class SearchPattern:
     microphone_re = re.compile(pattern="(?P<mic>[a-zA-Z]ic\s[a-zA-Z]{2,3})")
     camera_re = re.compile(pattern="(?P<camera>[a-zA-Z]amera\s[a-zA-Z]{2,3})")
 
-    subject_unknown = 'New Window | Microsoft Teams'
     subject_name: str = None
+    subject_unknown = 'New Window | Microsoft Teams'
     microsoft_teams = re.compile(pattern="Microsoft Teams")
     join_button_patt = "Join With"
     microphone_control_name = "Microphone"
@@ -402,7 +402,8 @@ class IUIAutomation:
         self.camera_control = None
         self.cam_state = None
         self.mic_state = None
-        self.preferred_states = camera, mic
+        self.preferred_cam_state = camera.lower() if isinstance(camera, str) and camera else None
+        self.preferred_mic_state = mic.lower() if isinstance(mic, str) and mic else None
 
     @staticmethod
     def iterate_over_elements(walker, element, max_iteration=0xFFFFFFFF) -> Generator[Any, None, None]:
@@ -561,10 +562,10 @@ class MouseEvents:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN")
-    parser.add_argument("--mic_state", type=int, required=False, help="Provide flag for microphone: 1 - ON, 0 - OFF",
-                        default=1)
-    parser.add_argument("--camera_state", type=int, required=False, help="Provide flag for camera: 1 - ON, 0 - OFF",
-                        default=1)
+    parser.add_argument("--mic_state", type=str, required=False, help="Provide flag for microphone: 'on' or 'off'",
+                        default="on")
+    parser.add_argument("--camera_state", type=str, required=False, help="Provide flag for camera: 'on' or 'off'",
+                        default="on")
     parser.add_argument("--start_before", type=int, required=False,
                         help="Provide time (seconds) to join before actual meeting has started",
                         default=3 * 60)
