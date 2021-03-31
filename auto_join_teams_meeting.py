@@ -455,9 +455,27 @@ class IUIAutomation:
             warnings.warn(f"Class instance 'join_button' is {self.join_button!r}")
             self.cam_state = "unknown"
             return self.cam_state
-        result = re.search(SearchPattern.camera, self.join_button.CurrentName)
+        result = re.search(SearchPattern.camera_re, self.join_button.CurrentName)
         *_, self.cam_state = result.group("camera").split(" ")
         return self.cam_state
+
+    @property
+    def get_camera_x_y(self) -> Tuple[int, int]:
+        """Get Camera ControlType x, y to press"""
+
+        camera = self.camera_control
+        x = (camera.CurrentBoundingRectangle.right + camera.CurrentBoundingRectangle.left) // 2
+        y = (camera.CurrentBoundingRectangle.bottom + camera.CurrentBoundingRectangle.top) // 2
+        return x, y
+
+    @property
+    def get_mic_x_y(self) -> Tuple[int, int]:
+        """Get Microphone ControlType x, y to press"""
+
+        mic = self.microphone_control
+        x = (mic.CurrentBoundingRectangle.right + mic.CurrentBoundingRectangle.left) // 2
+        y = (mic.CurrentBoundingRectangle.bottom + mic.CurrentBoundingRectangle.top) // 2
+        return x, y
 
     @property
     def microphone_state(self):
@@ -527,8 +545,8 @@ class IUIAutomation:
 class MouseEvents:
     """Invoke mouse events"""
 
-    @staticmethod
-    def left_button_click(dx: int, dy: int):
+    @classmethod
+    def left_button_click(cls, dx: int, dy: int):
         """Simulate mouse left button click on provided position"""
 
         win32api.SetCursorPos((dx, dy))
@@ -720,4 +738,4 @@ if __name__ == '__main__':
     #
     # x = (get_camera.CurrentBoundingRectangle.right + get_camera.CurrentBoundingRectangle.left) // 2
     # y = (get_camera.CurrentBoundingRectangle.bottom + get_camera.CurrentBoundingRectangle.top) // 2
-    # InvokeEvents.left_button_click(x, y)
+    # MouseEvents.left_button_click(x, y)
