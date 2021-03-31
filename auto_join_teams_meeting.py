@@ -434,7 +434,7 @@ class IUIAutomation:
         return x, y
 
     def region_control_siblings_from_document_control(self, walker, element, search_patt: SearchPattern):
-        """Retrieve two Pane ControlType: 50033"""
+        """Retrieve two Pane ControlType: 50033 and assign Join button to class instance"""
 
         siblings_5033 = list()
         for sibling in self.iterate_over_elements(walker, element):
@@ -451,8 +451,6 @@ class IUIAutomation:
         child_sibling = list()
         for sibling in self.iterate_over_elements(walker, root_element):
             match = re.search(pattern=to_search, string=sibling.CurrentName.__str__())
-            if not match:
-                return False
             if match and sibling.CurrentNativeWindowHandle in enum_wind:
                 child_sibling.append(sibling)
         return child_sibling
@@ -542,7 +540,7 @@ class TeamsRunner:
         teams_window_hwnd = teams_window[-1]
         enum.activate_window(teams_window_hwnd)
 
-        # Iterate over Teams Window. Get ControlTypes. IUIAutomation block.
+        # =========== IUIAutomation block. Iterate over Teams Window. Get ControlTypes. ===========
         from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
                                                                       enum_wind=teams_window, search_patt=search_patt)
         get_document_control_list = [element for element in
@@ -563,6 +561,7 @@ class TeamsRunner:
         if not get_controls_50033_list or len(get_controls_50033_list) < 2:
             return False, meeting
 
+        # Get microphone Controls
         iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
 
         # Get Toolbar and Camera Controls
@@ -578,7 +577,7 @@ class TeamsRunner:
                                                              jbutton=iui_auto.join_button):
             return False, meeting
 
-        # Enable microphone, camera, join button coordinates
+        # Microphone, camera, join button coordinates
         camera = iui_auto.get_camera_x_y
         mic = iui_auto.get_mic_x_y
         join_button = iui_auto.get_join_x_y
