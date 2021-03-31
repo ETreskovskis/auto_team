@@ -115,6 +115,7 @@ class OutlookApi:
         calendar.Sort("[Start]")
 
         # Modify date by needs
+        # Todo: change to normal date time!!!
         today_date = datetime.datetime.today() + datetime.timedelta(days=1)
         tomorrow_date = datetime.timedelta(days=1) + today_date
         begin_day = today_date.date().strftime("%m/%d/%Y")
@@ -563,6 +564,7 @@ class MouseEvents:
 
 
 if __name__ == '__main__':
+    # Todo: change to normal date time!!!
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN. For additional parameter info use --help")
     parser.add_argument("--mic_state", type=str, required=False,
                         help="Provide flag for microphone: 'on' or 'off'. Note: this set up for all incoming meetings",
