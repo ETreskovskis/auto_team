@@ -213,7 +213,7 @@ class OutlookApi:
                 message=f"Meeting {meet_object.Subject} URL is missing: {url}. Check displayed OutLook window")
             return False
 
-        text = f"Meeting via Teams which start at: {meet_object.Start} - Subject: {meet_object.Subject} " \
+        text = f"Meeting via Teams which starts at: {meet_object.Start} - Subject: {meet_object.Subject} " \
                f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
         print(text)
         time_to_wait = seconds - self.start_before
@@ -522,13 +522,13 @@ class TeamsRunner:
 
     @staticmethod
     def main(meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation,
-             outlook: OutlookApi, mouse: MouseEvents) -> bool:
+             outlook: OutlookApi, mouse: MouseEvents) -> Tuple[bool, Tuple]:
         """This would be refactored"""
         # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
 
         wait_for_meeting = outlook.wait_for_meeting(meeting_data=meeting)
         if not wait_for_meeting:
-            return False
+            return False, meeting
 
         time_to_start, url, search_patt, meet_obj = meeting
 
@@ -536,7 +536,7 @@ class TeamsRunner:
         enumerated = enum.enumerate_windows
         teams_window = enum.validate_teams_open_window(enumerated, search_patt)
         if not teams_window:
-            return False
+            return False, meeting
 
         # Activate window. Set window as foreground window.
         teams_window_hwnd = teams_window[-1]
@@ -550,7 +550,7 @@ class TeamsRunner:
                                      element.CurrentControlType == ControlType.DocumentControlType]
 
         if not get_document_control_list:
-            return False
+            return False, meeting
 
         # Get Pane ControlTypes and get join button
         document_control, *_ = get_document_control_list
@@ -561,14 +561,14 @@ class TeamsRunner:
 
         # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
         if not get_controls_50033_list or len(get_controls_50033_list) < 2:
-            return False
+            return False, meeting
 
         iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
 
         # Get Toolbar and Camera Controls
         tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
         if not tool_bar:
-            return False
+            return False, meeting
 
         iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_patt)
 
@@ -576,7 +576,7 @@ class TeamsRunner:
         if not TeamsRunner.validate_mic_camera_join_controls(mic=iui_auto.microphone_control,
                                                              cam=iui_auto.camera_control,
                                                              jbutton=iui_auto.join_button):
-            return False
+            return False, meeting
 
         # Enable microphone, camera, join button coordinates
         camera = iui_auto.get_camera_x_y
@@ -591,6 +591,7 @@ class TeamsRunner:
 
         # Press JOIN button:
         mouse.left_button_click(*join_button)
+        return True, meeting
 
     @classmethod
     def run_meetings(cls, meetings_data: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
@@ -605,8 +606,10 @@ class TeamsRunner:
         with ThreadPoolExecutor() as executor:
             results = executor.map(wrapper_main, meetings_data)
 
-            for meet_result in results:
-                print(f"Meeting starts in 3min. Window is open: {meet_result}")
+            for mt_result, mt_obj in results:
+                print(f"Meeting organized by: {mt_obj[3].GetOrganizer} "
+                      f"subject: {mt_obj[3].Subject}. Successful: {mt_result}")
+        return True
 
 
 if __name__ == '__main__':
@@ -624,9 +627,12 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
 
     outlook_class = OutlookApi(time_before=arguments.start_before)
-    meetings = outlook_class.available_meetings()
+    planned_meetings = outlook_class.available_meetings()
     iui_auto_class = IUIAutomation(camera=arguments.camera_state, mic=arguments.mic_state)
     enum_class = EnumActiveWindows()
     mouse_event = MouseEvents()
-    TeamsRunner.run_meetings(meetings, enum=enum_class, iui_auto=iui_auto_class, outlook=outlook_class,
-                             mouse=mouse_event)
+    run_meetings = TeamsRunner.run_meetings(planned_meetings, enum=enum_class, iui_auto=iui_auto_class,
+                                            outlook=outlook_class, mouse=mouse_event)
+    if not run_meetings:
+        sys.exit("There are no meetings to start. Quiting.")
+    sys.exit(f"Success status: {run_meetings}")
