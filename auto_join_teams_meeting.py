@@ -515,6 +515,7 @@ class TeamsRunner:
         """Validate if all necessary buttons are parsed"""
 
         if not mic or not cam or not jbutton:
+            warnings.warn(f"Items camera: {cam}, microphone: {mic}, join button: {jbutton} were found")
             return False
         return True
 
@@ -534,6 +535,7 @@ class TeamsRunner:
         enumerated = enum.enumerate_windows
         teams_window = enum.validate_teams_open_window(enumerated, search_patt)
         if not teams_window:
+            warnings.warn(f"{EnumActiveWindows.__name__} did not enumerate Teams window")
             return False, meeting
 
         # Activate window. Set window as foreground window.
@@ -548,6 +550,7 @@ class TeamsRunner:
                                      element.CurrentControlType == ControlType.DocumentControlType]
 
         if not get_document_control_list:
+            warnings.warn("Document ControlType was not found!")
             return False, meeting
 
         # Get Pane ControlTypes and get join button
@@ -559,6 +562,7 @@ class TeamsRunner:
 
         # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
         if not get_controls_50033_list or len(get_controls_50033_list) < 2:
+            warnings.warn(f"Pane ControlType was not found or length is < 2 : {len(get_controls_50033_list)} ")
             return False, meeting
 
         # Get microphone Controls
@@ -567,6 +571,7 @@ class TeamsRunner:
         # Get Toolbar and Camera Controls
         tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
         if not tool_bar:
+            warnings.warn(f"ToolBar ControlType was not found")
             return False, meeting
 
         iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_patt)
@@ -634,4 +639,4 @@ if __name__ == '__main__':
                                             outlook=outlook_class, mouse=mouse_event)
     if not run_meetings:
         sys.exit("There are no meetings to start. Quiting.")
-    sys.exit(f"Success status: {run_meetings}")
+    sys.exit(f"Quiting threads finished: {run_meetings}")
