@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from functools import partial
 
+import ctypes
 import comtypes
 import comtypes.client
 import datetime
@@ -291,6 +292,7 @@ class EnumActiveWindows:
 
         win32gui.ShowWindow(window_handler, win32con.SW_SHOWNOACTIVATE)
         win32gui.SetForegroundWindow(window_handler)
+        win32gui.SetCapture(window_handler)
 
 
 class IUIAutomation:
@@ -484,7 +486,14 @@ class IUIAutomation:
 
 
 class MouseEvents:
-    """Invoke mouse events"""
+    """Invoke mouse events
+
+    Reference:
+    https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-blockinput
+    """
+
+    def __init__(self):
+        self.user32 = ctypes.windll.LoadLibrary("User32.dll")
 
     @classmethod
     def left_button_click(cls, dx: int, dy: int):
@@ -495,6 +504,16 @@ class MouseEvents:
         time.sleep(0.5)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         time.sleep(0.5)
+
+    def block_input(self):
+        """Blocks keyboard and mouse input events from reaching applications"""
+
+        self.user32.BlockInput(True)
+
+    def unblock_input(self):
+        """Unblocks keyboard and mouse input events from reaching applications"""
+
+        self.user32.BlockInput(False)
 
 
 class TeamsRunner:
@@ -591,7 +610,8 @@ class TeamsRunner:
         mic = iui_auto.get_mic_x_y
         join_button = iui_auto.get_join_x_y
 
-        # Check if Camera and Microphone should be changed their state
+        # Check if Camera and Microphone should be changed their state. Block and then unblock mouse, keyboard inputs
+        mouse.block_input()
         if iui_auto.change_camera_state:
             mouse.left_button_click(*camera)
         if iui_auto.change_mic_state:
@@ -599,6 +619,7 @@ class TeamsRunner:
 
         # Press JOIN button:
         mouse.left_button_click(*join_button)
+        mouse.unblock_input()
         return True, meeting
 
     @classmethod

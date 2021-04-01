@@ -286,3 +286,14 @@ win32gui.EnumChildWindows(handler, callback_child, enum_child)
 # GetWindowText: TA Daily Scrum | Microsoft Teams
 # IsWindowVisible: Window is visible: True
 # GetCursorPos: (1605, 51)
+
+# Powerfull method
+# # Reference:
+# # https://docs.microsoft.com/en-us/windows/win32/inputdev/about-mouse-input
+# # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfow
+# win32gui.SystemParametersInfo(win32con.SPI_SETMOUSECLICKLOCK, win32con.FALSE)
+# result = win32gui.SystemParametersInfo(win32con.SPI_GETMOUSECLICKLOCK)
+# # w = win32gui.SystemParametersInfo(win32con.SPI_SETMOUSECLICKLOCKTIME, 1200)
+# print(result)
+# # print(w)
+# print(win32gui.SystemParametersInfo(win32con.SPI_GETMOUSECLICKLOCKTIME))
