@@ -211,8 +211,8 @@ class OutlookApi:
                 message=f"Meeting {meet_object.Subject} URL is missing: {url}. Check displayed OutLook window")
             return False
 
-        text = f"Meeting via Teams which starts at: {meet_object.Start} - Subject: {meet_object.Subject} " \
-               f"- Organizer: {meet_object.GetOrganizer} - Location: {meet_object.Location}"
+        text = f"Meeting via Teams which starts at: {meet_object.Start} >>> Subject: {meet_object.Subject} " \
+               f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
         time_to_wait = seconds - self.start_before
         time.sleep(time_to_wait)
