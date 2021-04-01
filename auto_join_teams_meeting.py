@@ -13,7 +13,7 @@ import warnings
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Optional, List, Tuple, Generator, Any
+from typing import Optional, List, Tuple, Generator, Any, Callable
 
 import pywintypes
 import win32api
@@ -520,7 +520,7 @@ class TeamsRunner:
         return True
 
     @staticmethod
-    def main(meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: IUIAutomation,
+    def main(meeting: Tuple[float, str, SearchPattern, Any], enum: EnumActiveWindows, iui_auto: Callable,
              outlook: OutlookApi, mouse: MouseEvents) -> Tuple[bool, Tuple]:
         """This would be refactored"""
         # Tuple[time_to_start, URL, SearchPattern, DataStorage(with all attributes)]
@@ -531,7 +531,8 @@ class TeamsRunner:
 
         time_to_start, url, search_patt, meet_obj = meeting
 
-        # Enumerate active windows
+        # Enumerate active windows. Wait few seconds until window will appear on screen
+        time.sleep(3)
         enumerated = enum.enumerate_windows
         teams_window = enum.validate_teams_open_window(enumerated, search_patt)
         if not teams_window:
@@ -542,7 +543,10 @@ class TeamsRunner:
         teams_window_hwnd = teams_window[-1]
         enum.activate_window(teams_window_hwnd)
 
-        # =========== IUIAutomation block. Iterate over Teams Window. Get ControlTypes. ===========
+        # =========== IUIAutomation block. IUIAutomation need to be initialized for each thread.
+        # Iterate over Teams Window. Get ControlTypes. ===========
+        iui_auto = iui_auto()
+
         from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
                                                                       enum_wind=teams_window, search_patt=search_patt)
         get_document_control_list = [element for element in
@@ -599,7 +603,7 @@ class TeamsRunner:
 
     @classmethod
     def run_meetings(cls, meetings_data: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
-                     iui_auto: IUIAutomation, outlook: OutlookApi, mouse: MouseEvents) -> bool:
+                     iui_auto: Callable, outlook: OutlookApi, mouse: MouseEvents) -> bool:
         """Validate meetings first and then run them."""
 
         if not TeamsRunner.validate_meetings(meetings_data):
@@ -620,7 +624,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN. For additional parameter info use --help")
     parser.add_argument("--mic_state", type=str, required=False,
                         help="Provide flag for microphone: 'on' or 'off'. Note: this set up for all upcoming meetings",
-                        default="on")
+                        default="off")
     parser.add_argument("--camera_state", type=str, required=False,
                         help="Provide flag for camera: 'on' or 'off'. Note: this set up for all upcoming meetings",
                         default="on")
@@ -632,10 +636,10 @@ if __name__ == '__main__':
 
     outlook_class = OutlookApi(time_before=arguments.start_before)
     planned_meetings = outlook_class.available_meetings()
-    iui_auto_class = IUIAutomation(camera=arguments.camera_state, mic=arguments.mic_state)
+    wrapp_iui_auto = partial(IUIAutomation, camera=arguments.camera_state, mic=arguments.mic_state)
     enum_class = EnumActiveWindows()
     mouse_event = MouseEvents()
-    run_meetings = TeamsRunner.run_meetings(planned_meetings, enum=enum_class, iui_auto=iui_auto_class,
+    run_meetings = TeamsRunner.run_meetings(planned_meetings, enum=enum_class, iui_auto=wrapp_iui_auto,
                                             outlook=outlook_class, mouse=mouse_event)
     if not run_meetings:
         sys.exit("There are no meetings to start. Quiting.")
