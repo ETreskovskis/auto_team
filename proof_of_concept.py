@@ -1,6 +1,8 @@
 import os
 import re
 import sys
+from concurrent.futures.thread import ThreadPoolExecutor
+from functools import partial
 from typing import Optional
 
 import pywintypes
@@ -210,49 +212,67 @@ def get_window_info(hwnd, top_windows: list):
 top_windows = []
 win32gui.EnumWindows(get_window_info, top_windows)
 print(top_windows)
+current_hwnd = top_windows[0].get("handler")
+
+# https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-messagebox
+result = win32gui.MessageBox(current_hwnd, "This is message box", "BOX", win32con.MB_OKCANCEL)
+# # OK - 1, Cancel - 2
+# print(result)
 #
-for idx, items in enumerate(top_windows):
-    # Todo: if URL not parsed then create check: 1.outlook window is open 2. auto-click on outlook join-teams button
-    # Todo:
-    if items.get("name") and "TA Daily Scrum" in items.get("name"):
-        handler = top_windows[idx].get("handler")
-        win32gui.ShowWindow(handler, win32con.SW_SHOWNOACTIVATE)
-        win32gui.SetForegroundWindow(handler)
-        # returns (left, top, right, bottom)
-        # print(win32gui.GetWindowRect(handler))
-        # print(win32gui.GetWindowPlacement(handler))
-        current_window = win32gui.GetForegroundWindow()
-        print(win32gui.GetWindowText(current_window))
-        time.sleep(1)
-        is_visible = win32gui.IsWindowVisible(current_window)
-        enabled = win32gui.IsWindowEnabled(current_window)
-        print(f"Window is visible: {bool(is_visible)}")
-        print(f"Window is enabled: {bool(enabled)}")
-        # print("SLEEP 15s")
-        # time.sleep(15)
-        print(f"Cursor pos: {win32gui.GetCursorPos()}")
-        # This method more stable
-        win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
-        time.sleep(1)
-        print("SLEEP 15s")
-        time.sleep(15)
-        print(f"Cursor pos: {win32gui.GetCursorPos()}")
-        # pos = (1405, 750)
-        # win32api.SetCursorPos(pos)
-        # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
-        # https://www.programmersought.com/article/98256504655/
-        # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(0.5)
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        break
+# res = win32gui.FindWindow(win32con.NULL, "BOX")
+# print(res)
 
-enum_child = []
-def callback_child(current_hwnd, enum_child: list):
-    class_name = win32gui.GetClassName(current_hwnd)
-    enum_child.append(dict(name=class_name, hwnd=current_hwnd))
+# wrapper_message = partial(win32gui.MessageBox, current_hwnd,  "This is message box", "BOX", win32con.MB_OKCANCEL)
+# with ThreadPoolExecutor() as executor:
+#     results = executor.map(wrapper_message, [])
+#
+#     for r in results:
+#         print(r)
 
-win32gui.EnumChildWindows(handler, callback_child, enum_child)
+res = win32gui.FindWindow(win32con.NULL, "BOX")
+print(res)
+# for idx, items in enumerate(top_windows):
+#     # Todo: if URL not parsed then create check: 1.outlook window is open 2. auto-click on outlook join-teams button
+#     # Todo:
+#     if items.get("name") and "TA Daily Scrum" in items.get("name"):
+#         handler = top_windows[idx].get("handler")
+#         win32gui.ShowWindow(handler, win32con.SW_SHOWNOACTIVATE)
+#         win32gui.SetForegroundWindow(handler)
+#         # returns (left, top, right, bottom)
+#         # print(win32gui.GetWindowRect(handler))
+#         # print(win32gui.GetWindowPlacement(handler))
+#         current_window = win32gui.GetForegroundWindow()
+#         print(win32gui.GetWindowText(current_window))
+#         time.sleep(1)
+#         is_visible = win32gui.IsWindowVisible(current_window)
+#         enabled = win32gui.IsWindowEnabled(current_window)
+#         print(f"Window is visible: {bool(is_visible)}")
+#         print(f"Window is enabled: {bool(enabled)}")
+#         # print("SLEEP 15s")
+#         # time.sleep(15)
+#         print(f"Cursor pos: {win32gui.GetCursorPos()}")
+#         # This method more stable
+#         win32gui.MoveWindow(handler, 365, 100, 1200, 800, win32con.FALSE)
+#         time.sleep(1)
+#         print("SLEEP 15s")
+#         time.sleep(15)
+#         print(f"Cursor pos: {win32gui.GetCursorPos()}")
+#         # pos = (1405, 750)
+#         # win32api.SetCursorPos(pos)
+#         # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mouse_event
+#         # https://www.programmersought.com/article/98256504655/
+#         # http://timgolden.me.uk/pywin32-docs/win32api__mouse_event_meth.html
+#         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+#         time.sleep(0.5)
+#         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+#         break
+
+# enum_child = []
+# def callback_child(current_hwnd, enum_child: list):
+#     class_name = win32gui.GetClassName(current_hwnd)
+#     enum_child.append(dict(name=class_name, hwnd=current_hwnd))
+#
+# win32gui.EnumChildWindows(handler, callback_child, enum_child)
 # print(enum_child)
 # for hndlr in enum_child:
 #
@@ -287,7 +307,7 @@ win32gui.EnumChildWindows(handler, callback_child, enum_child)
 # IsWindowVisible: Window is visible: True
 # GetCursorPos: (1605, 51)
 
-# Powerfull method
+# Powerful methods============================================================
 # # Reference:
 # # https://docs.microsoft.com/en-us/windows/win32/inputdev/about-mouse-input
 # # https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfow
@@ -297,3 +317,4 @@ win32gui.EnumChildWindows(handler, callback_child, enum_child)
 # print(result)
 # # print(w)
 # print(win32gui.SystemParametersInfo(win32con.SPI_GETMOUSECLICKLOCKTIME))
+
