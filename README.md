@@ -4,3 +4,5 @@ Automated Microsoft Teams meeting joining script. Scheduled meetings are parsed 
 **--mic_state** -> preferred microphone state (On or Off)
 **--camera_state** -> preferred camera state (On or Off)
 **--start_before** -> join meeting earlier than it is scheduled.
+
+Other functionalities could be added, updated. Feel free to use it! :)
