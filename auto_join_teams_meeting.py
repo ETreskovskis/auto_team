@@ -154,6 +154,26 @@ class OutlookApi:
             yield event
 
     @staticmethod
+    def _print_bar(meeting: str, total: int, current: int, bar_size: int = 100):
+        """Print bar"""
+
+        progress = (current * bar_size) // total
+        completed = "".join([str(current * 100 // total), "%"])
+        print(f"{meeting}", " [", ">" * progress, completed, "." * (bar_size - progress), "]", sep="", end="\r",
+              flush=True)
+
+    def progress_bar(self, meeting: str,  waiting_total: int, bar_size: int = 100):
+        """Progress bar"""
+
+        start = time.time()
+        duration = waiting_total
+        while duration > time.time() - start:
+            current_time = int(time.time() - start)
+            self._print_bar(meeting=meeting, total=waiting_total, current=current_time, bar_size=bar_size)
+            time.sleep(1)
+        self._print_bar(meeting=meeting, total=waiting_total, current=waiting_total, bar_size=bar_size)
+
+    @staticmethod
     def _parse_teams_meet_join_url(meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Properties. If URL is absent then open Outlook Meeting Occurrence window
         """
@@ -216,7 +236,7 @@ class OutlookApi:
                f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
         time_to_wait = seconds - self.start_before
-        time.sleep(time_to_wait)
+        self.progress_bar(meeting=meet_object.Subject, waiting_total=int(time_to_wait), bar_size=100)
         return self._open_teams_meet_via_url(url)
 
     @staticmethod
