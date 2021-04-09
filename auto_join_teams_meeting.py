@@ -154,24 +154,24 @@ class OutlookApi:
             yield event
 
     @staticmethod
-    def _print_bar(total:int, current:int, bar_size:int = 100):
+    def _print_bar(meeting: str, total: int, current: int, bar_size: int = 100):
         """Print bar"""
 
         progress = (current * bar_size) // total
-        print("[",">"*i, str(i) + "%", "."*(bar_size - progress), "]", end="\r", flush=True)
+        completed = "".join([str(current * 100 // total), "%"])
+        print(f"{meeting}", " [", ">" * progress, completed, "." * (bar_size - progress), "]", sep="", end="\r",
+              flush=True)
 
-    @staticmethod
-    def progress_bar(waiting_total: int):
+    def progress_bar(self, meeting: str,  waiting_total: int, bar_size: int = 100):
         """Progress bar"""
 
-        for current in range(1, 100 + 1):
-            progress = (current)
-
-        bar_length = 100
         start = time.time()
         duration = waiting_total
         while duration > time.time() - start:
-
+            current_time = int(time.time() - start)
+            self._print_bar(meeting=meeting, total=waiting_total, current=current_time, bar_size=bar_size)
+            time.sleep(1)
+        self._print_bar(meeting=meeting, total=waiting_total, current=waiting_total, bar_size=bar_size)
 
     @staticmethod
     def _parse_teams_meet_join_url(meeting_event: DataStorage) -> Optional[str]:
@@ -235,9 +235,8 @@ class OutlookApi:
         text = f"Meeting via Teams which starts at: {meet_object.Start} >>> Subject: {meet_object.Subject} " \
                f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
-        # TODO: add progress bar
         time_to_wait = seconds - self.start_before
-        time.sleep(time_to_wait)
+        self.progress_bar(meeting=meet_object.Subject, waiting_total=int(time_to_wait), bar_size=100)
         return self._open_teams_meet_via_url(url)
 
     @staticmethod
