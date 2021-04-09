@@ -6,4 +6,4 @@ Automated Microsoft Teams meeting joining script. Scheduled meetings are parsed 
 **--start_before** -> join meeting earlier than it is scheduled.
 
 Other functionalities could be added, updated. Feel free to use it! :)
-Works on Python < 3.x version.
+Works on **Python < 3.x** version.
