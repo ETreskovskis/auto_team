@@ -154,6 +154,26 @@ class OutlookApi:
             yield event
 
     @staticmethod
+    def _print_bar(total:int, current:int, bar_size:int = 100):
+        """Print bar"""
+
+        progress = (current * bar_size) // total
+        print("[",">"*i, str(i) + "%", "."*(bar_size - progress), "]", end="\r", flush=True)
+
+    @staticmethod
+    def progress_bar(waiting_total: int):
+        """Progress bar"""
+
+        for current in range(1, 100 + 1):
+            progress = (current)
+
+        bar_length = 100
+        start = time.time()
+        duration = waiting_total
+        while duration > time.time() - start:
+
+
+    @staticmethod
     def _parse_teams_meet_join_url(meeting_event: DataStorage) -> Optional[str]:
         """Parse Teams meet-join url from event Properties. If URL is absent then open Outlook Meeting Occurrence window
         """
@@ -215,6 +235,7 @@ class OutlookApi:
         text = f"Meeting via Teams which starts at: {meet_object.Start} >>> Subject: {meet_object.Subject} " \
                f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
+        # TODO: add progress bar
         time_to_wait = seconds - self.start_before
         time.sleep(time_to_wait)
         return self._open_teams_meet_via_url(url)
