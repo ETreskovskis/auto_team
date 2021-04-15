@@ -170,7 +170,7 @@ class OutlookApi:
         while duration > time.time() - start:
             current_time = int(time.time() - start)
             self._print_bar(meeting=meeting, total=waiting_total, current=current_time, bar_size=bar_size)
-            time.sleep(1)
+            time.sleep(5)
         self._print_bar(meeting=meeting, total=waiting_total, current=waiting_total, bar_size=bar_size)
 
     @staticmethod
