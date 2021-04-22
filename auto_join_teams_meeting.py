@@ -162,7 +162,7 @@ class OutlookApi:
         print(f"{meeting}", " [", ">" * progress, completed, "." * (bar_size - progress), "]", sep="", end="\r",
               flush=True)
 
-    def progress_bar(self, meeting: str,  waiting_total: int, bar_size: int = 100):
+    def progress_bar(self, meeting: str, waiting_total: int, bar_size: int = 100):
         """Progress bar"""
 
         start = time.time()
@@ -644,11 +644,13 @@ class TeamsRunner:
 
     @classmethod
     def run_meetings(cls, meetings_data: List[Tuple[float, str, SearchPattern, Any]], enum: EnumActiveWindows,
-                     iui_auto: Callable, outlook: OutlookApi, mouse: MouseEvents) -> bool:
+                     iui_auto: Callable, outlook: OutlookApi, mouse: MouseEvents) -> Tuple[bool, List]:
         """Validate meetings first and then run them."""
 
+        meetings_results = list()
+
         if not TeamsRunner.validate_meetings(meetings_data):
-            return False
+            return False, meetings_results
 
         wrapper_main = partial(TeamsRunner.main, enum=enum, iui_auto=iui_auto, outlook=outlook, mouse=mouse)
 
@@ -658,7 +660,8 @@ class TeamsRunner:
             for mt_result, mt_obj in results:
                 print(f"Meeting organized by: {mt_obj[3].GetOrganizer} "
                       f"subject: {mt_obj[3].Subject}. Successful: {mt_result}")
-        return True
+                meetings_results.append((mt_obj[3].GetOrganizer, mt_obj[3].Subject, mt_result))
+        return True, meetings_results
 
 
 if __name__ == '__main__':
@@ -680,8 +683,9 @@ if __name__ == '__main__':
     wrapp_iui_auto = partial(IUIAutomation, camera=arguments.camera_state, mic=arguments.mic_state)
     enum_class = EnumActiveWindows()
     mouse_event = MouseEvents()
-    run_meetings = TeamsRunner.run_meetings(planned_meetings, enum=enum_class, iui_auto=wrapp_iui_auto,
-                                            outlook=outlook_class, mouse=mouse_event)
-    if not run_meetings:
+    run_meetings_bool, run_meetings_list = TeamsRunner.run_meetings(planned_meetings, enum=enum_class,
+                                                                    iui_auto=wrapp_iui_auto,
+                                                                    outlook=outlook_class, mouse=mouse_event)
+    if not run_meetings_bool:
         sys.exit("There are no meetings to start. Quiting.")
-    sys.exit(f"Quiting threads finished: {run_meetings}")
+    sys.exit(f"Quiting threads. Finished meetings: {*run_meetings_list,}")
