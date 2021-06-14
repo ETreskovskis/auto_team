@@ -596,6 +596,7 @@ class TeamsRunner:
             warnings.warn("Document ControlType was not found!")
             return False, meeting
 
+        # Todo: fix this method! AttributeError: 'NoneType' object has no attribute 'CurrentControlType'
         # Get Pane ControlTypes and get join button
         document_control, *_ = get_document_control_list
         get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
