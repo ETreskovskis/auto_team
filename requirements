@@ -1,4 +1,4 @@
 pywin32-ctypes==0.2.0
-pywin32==301
+pywin32==300
 pywinpty==0.5.5
-comtypes==1.1.10
+comtypes==1.1.9
