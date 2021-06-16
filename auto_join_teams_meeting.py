@@ -236,8 +236,6 @@ class OutlookApi:
                f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
         time_to_wait = seconds - self.start_before
-        # Todo: remove later.!!!
-        time_to_wait = 2
         self.progress_bar(meeting=meet_object.Subject, waiting_total=int(time_to_wait), bar_size=100)
         return self._open_teams_meet_via_url(url)
 
@@ -462,8 +460,12 @@ class IUIAutomation:
 
         siblings_5033 = list()
         for sibling in self.iterate_over_elements(walker, element):
-            if sibling.CurrentControlType == ControlType.PaneControlType:
-                siblings_5033.append(sibling)
+            try:
+                if sibling.CurrentControlType == ControlType.PaneControlType:
+                    siblings_5033.append(sibling)
+            except AttributeError as error:
+                warnings.warn(error.args[0])
+                return siblings_5033
             if search_patt.join_button_patt in sibling.CurrentName:
                 self.join_button = sibling
         return siblings_5033
