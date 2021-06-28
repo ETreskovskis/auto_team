@@ -670,10 +670,10 @@ class TeamsRunner:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN. For additional parameter info use --help")
-    parser.add_argument("--mic_state", type=str, required=False, default="off",
+    parser.add_argument("--mic_state", type=str, required=True, default="off",
                         help="Provide flag for microphone: 'on' or 'off'. Note: this set up for all upcoming meetings",
                         )
-    parser.add_argument("--camera_state", type=str, required=False, default="off",
+    parser.add_argument("--camera_state", type=str, required=True, default="off",
                         help="Provide flag for camera: 'on' or 'off'. Note: this set up for all upcoming meetings",
                         )
     parser.add_argument("--start_before", type=int, required=False,
