@@ -460,8 +460,12 @@ class IUIAutomation:
 
         siblings_5033 = list()
         for sibling in self.iterate_over_elements(walker, element):
-            if sibling.CurrentControlType == ControlType.PaneControlType:
-                siblings_5033.append(sibling)
+            try:
+                if sibling.CurrentControlType == ControlType.PaneControlType:
+                    siblings_5033.append(sibling)
+            except AttributeError as error:
+                warnings.warn(error.args[0])
+                return siblings_5033
             if search_patt.join_button_patt in sibling.CurrentName:
                 self.join_button = sibling
         return siblings_5033
@@ -666,10 +670,10 @@ class TeamsRunner:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Teams AUTO-JOIN. For additional parameter info use --help")
-    parser.add_argument("--mic_state", type=str, required=True,
+    parser.add_argument("--mic_state", type=str, required=True, default="off",
                         help="Provide flag for microphone: 'on' or 'off'. Note: this set up for all upcoming meetings",
                         )
-    parser.add_argument("--camera_state", type=str, required=True,
+    parser.add_argument("--camera_state", type=str, required=True, default="off",
                         help="Provide flag for camera: 'on' or 'off'. Note: this set up for all upcoming meetings",
                         )
     parser.add_argument("--start_before", type=int, required=False,
