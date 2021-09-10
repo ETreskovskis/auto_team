@@ -45,7 +45,7 @@ def retry(times: int):
                 result = func(*args, **kwargs)
                 if result and len(result) > 1:
                     return result
-            # Todo: is it good approach???
+                time.sleep(0.1)
             return func(*args, **kwargs)
         return wrapper
     return _retry
