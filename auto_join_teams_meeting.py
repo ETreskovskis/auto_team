@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from functools import partial
+from functools import partial, wraps
 
 import ctypes
 import comtypes
@@ -31,6 +31,24 @@ def _for_debugging_purpose(ensure_dispatch):
     # ensure_dispatch = win32com.client.gencache.EnsureDispatch("Outlook.Application")
 
     print(sys.modules[ensure_dispatch.__module__].__file__)
+
+
+def retry(times: int):
+    """Specific retry wrapper for iui_auto.region_control_siblings_from_document_control. Since sometimes join button
+    is not parsed and length of parsed list of Control_5033 objects is less than 2.
+    """
+
+    def _retry(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for n in range(times):
+                result = func(*args, **kwargs)
+                if result and len(result) > 1:
+                    return result
+                time.sleep(0.1)
+            return func(*args, **kwargs)
+        return wrapper
+    return _retry
 
 
 @dataclass(init=False, order=True)
@@ -123,6 +141,7 @@ class OutlookApi:
         calendar.IncludeRecurrences = True
         calendar.Sort("[Start]")
 
+        # DEBUG here. If you want to shorten meeting waiting time
         # Modify date by needs
         today_date = datetime.datetime.today()
         tomorrow_date = datetime.timedelta(days=1) + today_date
@@ -235,6 +254,7 @@ class OutlookApi:
         text = f"Meeting via Teams which starts at: {meet_object.Start} >>> Subject: {meet_object.Subject} " \
                f">>> Organizer: {meet_object.GetOrganizer} >>> Location: {meet_object.Location}"
         print(text)
+        # DEBUG here. If you want to shorten the wait time
         time_to_wait = seconds - self.start_before
         self.progress_bar(meeting=meet_object.Subject, waiting_total=int(time_to_wait), bar_size=100)
         return self._open_teams_meet_via_url(url)
@@ -297,13 +317,13 @@ class EnumActiveWindows:
         return self.enum_windows
 
     @staticmethod
-    def validate_teams_open_window(enumerated: List[DataStorage], search_patt: SearchPattern) -> List[int]:
+    def validate_teams_open_window(enumerated: List[DataStorage], search_pattern: SearchPattern) -> List[int]:
         """Find open Teams window. Search is based on meeting.Subject name"""
 
-        teams_window = [window.handler for window in enumerated if search_patt.subject_name in window.name]
+        teams_window = [window.handler for window in enumerated if search_pattern.subject_name in window.name]
         if not teams_window:
             teams_window = [window.handler for window in enumerated if
-                            search_patt.subject_unknown in window.name]
+                            search_pattern.subject_unknown in window.name]
         return teams_window
 
     @staticmethod
@@ -455,7 +475,8 @@ class IUIAutomation:
         y = (join.CurrentBoundingRectangle.bottom + join.CurrentBoundingRectangle.top) // 2
         return x, y
 
-    def region_control_siblings_from_document_control(self, walker, element, search_patt: SearchPattern):
+    @retry(times=3)
+    def region_control_siblings_from_document_control(self, walker, element, search_pattern: SearchPattern):
         """Retrieve two Pane ControlType: 50033 and assign Join button to class instance"""
 
         siblings_5033 = list()
@@ -466,14 +487,14 @@ class IUIAutomation:
             except AttributeError as error:
                 warnings.warn(error.args[0])
                 return siblings_5033
-            if search_patt.join_button_patt in sibling.CurrentName:
+            if search_pattern.join_button_patt in sibling.CurrentName:
                 self.join_button = sibling
         return siblings_5033
 
-    def child_siblings_from_root_element(self, walker, root_element, search_patt: SearchPattern, enum_wind: List):
+    def child_siblings_from_root_element(self, walker, root_element, search_pattern: SearchPattern, enum_wind: List):
         """Get child siblings from root element (Desktop)"""
 
-        to_search = search_patt.subject_name if search_patt.subject_name else search_patt.subject_unknown
+        to_search = search_pattern.subject_name if search_pattern.subject_name else search_pattern.subject_unknown
         child_sibling = list()
         for sibling in self.iterate_over_elements(walker, root_element):
             match = re.search(pattern=to_search, string=sibling.CurrentName.__str__())
@@ -481,31 +502,31 @@ class IUIAutomation:
                 child_sibling.append(sibling)
         return child_sibling
 
-    def get_microphone_control_type(self, walker, elements: List, search_patt: SearchPattern):
+    def get_microphone_control_type(self, walker, elements: List, search_pattern: SearchPattern):
         """Get microphone ControlType from Pane ControlType"""
 
         for control in elements:
             for element in self.iterate_over_elements(walker, control):
-                if element.CurrentName == search_patt.microphone_control_name and (
+                if element.CurrentName == search_pattern.microphone_control_name and (
                         element.CurrentControlType == ControlType.CheckBoxControlType):
                     self.microphone_control = element
 
     @staticmethod
-    def get_toolbar_control_type(walker, elements: List, search_patt: SearchPattern):
+    def get_toolbar_control_type(walker, elements: List, search_pattern: SearchPattern):
         """Get Toolbar ControlType from Pane ControlType"""
 
         get_toolbar_control = [element for element in map(walker.GetFirstChildElement, elements) if (
                 element.CurrentControlType == ControlType.ToolBarControlType and (
-                element.CurrentName == search_patt.video_options))
+                element.CurrentName == search_pattern.video_options))
                                ]
         return get_toolbar_control
 
-    def get_camera_control_type(self, walker, elements: List, search_patt: SearchPattern):
+    def get_camera_control_type(self, walker, elements: List, search_pattern: SearchPattern):
         """Get Camera ControlType from ToolBar ControlType"""
 
         self.camera_control, *_ = [element for element in map(walker.GetFirstChildElement, elements) if (
                 element.CurrentControlType == ControlType.CheckBoxControlType and (
-                element.CurrentName == search_patt.camera_control_name))
+                element.CurrentName == search_pattern.camera_control_name))
                                    ]
 
 
@@ -572,12 +593,12 @@ class TeamsRunner:
         if not waiting_for_meeting:
             return False, meeting
 
-        time_to_start, url, search_patt, meet_obj = meeting
+        time_to_start, url, search_pattern, meet_obj = meeting
 
         # Enumerate active windows. Wait few seconds until window will appear on screen
         time.sleep(3)
         enumerated = enum.enumerate_windows
-        teams_window = enum.validate_teams_open_window(enumerated, search_patt)
+        teams_window = enum.validate_teams_open_window(enumerated, search_pattern)
         if not teams_window:
             warnings.warn(f"{EnumActiveWindows.__name__} did not enumerate Teams window")
             return False, meeting
@@ -591,7 +612,8 @@ class TeamsRunner:
         iui_auto = iui_auto()
 
         from_root_element = iui_auto.child_siblings_from_root_element(iui_auto.raw_view_walker, iui_auto.root_element,
-                                                                      enum_wind=teams_window, search_patt=search_patt)
+                                                                      enum_wind=teams_window,
+                                                                      search_pattern=search_pattern)
         get_document_control_list = [element for element in
                                      map(iui_auto.raw_view_walker.GetFirstChildElement, from_root_element) if
                                      element.CurrentControlType == ControlType.DocumentControlType]
@@ -605,7 +627,7 @@ class TeamsRunner:
         get_controls_50033_list = iui_auto.region_control_siblings_from_document_control(
             walker=iui_auto.control_view_walker,
             element=document_control,
-            search_patt=search_patt)
+            search_pattern=search_pattern)
 
         # first item is Pane (with toolbar Controltype) second Pane(with all other Control types: Audio, volume...)
         if not get_controls_50033_list or len(get_controls_50033_list) < 2:
@@ -613,15 +635,15 @@ class TeamsRunner:
             return False, meeting
 
         # Get microphone Controls
-        iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_patt)
+        iui_auto.get_microphone_control_type(iui_auto.control_view_walker, get_controls_50033_list, search_pattern)
 
         # Get Toolbar and Camera Controls
-        tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_patt)
+        tool_bar = iui_auto.get_toolbar_control_type(iui_auto.raw_view_walker, get_controls_50033_list, search_pattern)
         if not tool_bar:
             warnings.warn(f"ToolBar ControlType was not found")
             return False, meeting
 
-        iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_patt)
+        iui_auto.get_camera_control_type(iui_auto.control_view_walker, tool_bar, search_pattern)
 
         # Verify ControlTypes: camera, microphone, join button are parsed
         if not TeamsRunner.validate_mic_camera_join_controls(mic=iui_auto.microphone_control,
