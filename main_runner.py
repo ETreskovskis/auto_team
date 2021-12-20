@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     outlook_class = OutlookApi(time_before=arguments.start_before)
     planned_meetings = outlook_class.available_meetings()
-    wrapp_iui_auto = partial(IUIAutomation, camera=arguments.camera_state, mic=arguments.mic_state)
+    wrapp_iui_auto = partial(IUIAutomation, camera=arguments.camera, mic=arguments.mic)
     enum_class = EnumActiveWindows()
     mouse_event = MouseEvents()
     run_meetings_bool, run_meetings_list = TeamsRunner.run_meetings(planned_meetings, enum=enum_class,

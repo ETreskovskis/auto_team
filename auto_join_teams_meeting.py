@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 from functools import partial, wraps
 
 import ctypes
@@ -47,7 +46,9 @@ def retry(times: int):
                     return result
                 time.sleep(0.1)
             return func(*args, **kwargs)
+
         return wrapper
+
     return _retry
 
 
@@ -261,7 +262,7 @@ class OutlookApi:
 
     @staticmethod
     def drop_outdated_meetings(meetings: List[Tuple[float, str, SearchPattern, Any]]) -> List[
-         Tuple[float, str, SearchPattern, Any]]:
+        Tuple[float, str, SearchPattern, Any]]:
         """Drop outdated meetings when time is negative"""
 
         for _enum, meeting in enumerate(meetings):
@@ -688,6 +689,3 @@ class TeamsRunner:
                       f"subject: {mt_obj[3].Subject}. Successful: {mt_result}")
                 meetings_results.append((mt_obj[3].GetOrganizer, mt_obj[3].Subject, mt_result))
         return True, meetings_results
-
-
-
